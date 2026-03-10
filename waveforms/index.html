@@ -2,26 +2,43 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Démo Waveforms</title>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding-top: 50px; }
-        .synth-card { background: #1e1e1e; display: inline-block; padding: 30px; border-radius: 15px; border: 1px solid #333; }
-        input { width: 250px; display: block; margin: 10px auto; }
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 30px 10px; margin: 0; }
+        .synth-card {
+            background: #1e1e1e; display: inline-block; padding: 30px; border-radius: 15px;
+            border: 1px solid #333; max-width: 620px; width: calc(100% - 20px); box-sizing: border-box;
+        }
+        h1 { margin-top: 0; }
+        input[type="range"] { width: 80%; max-width: 250px; display: block; margin: 10px auto; }
         button { background: #00e5ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         label { color: #bbb; font-size: 0.9rem; }
         .wave-buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 15px 0; }
         .wave-buttons button { background: #333; color: #bbb; padding: 8px 16px; font-size: 0.85rem; }
         .wave-buttons button.active { background: #00e5ff; color: #121212; }
+        canvas { display: block; margin: 10px auto; border-radius: 8px; max-width: 100%; }
+        #waveCanvas { background: #0a0a0a; border: 1px solid #333; }
+        #partialsCanvas { background: #0a0a0a; border: 1px solid #333; }
+        .section-label { color: #555; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; margin: 15px 0 5px; }
+        .controls-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 5px 0; }
+        #showHarmonics { accent-color: #00e5ff; }
+        .small-btn { background: #333; color: #888; padding: 4px 12px; font-size: 0.75rem; border-radius: 3px; }
+        .small-btn:hover { background: #444; color: #ccc; }
     </style>
 </head>
 <body>
 
     <div class="synth-card">
         <h1>Waveforms</h1>
-        <button id="power">ACTIVER LE SON</button>
-        <hr style="margin: 20px 0; border: 0.5px solid #333;">
 
-        <label>Waveform</label>
+        <div class="section-label">Forme d'onde</div>
+        <canvas id="waveCanvas" width="560" height="160"></canvas>
+        <div class="controls-row">
+            <input type="checkbox" id="showHarmonics">
+            <label for="showHarmonics" style="color:#666; font-size:0.8rem;">Montrer les harmoniques individuels</label>
+        </div>
+
         <div class="wave-buttons" id="waveButtons">
             <button data-wave="sine">Sine</button>
             <button data-wave="square">Square</button>
@@ -30,96 +47,303 @@
             <button data-wave="custom" class="active">Custom</button>
         </div>
 
-        <label>Fréquence: <span id="freqVal">220</span> Hz</label>
-        <input type="range" id="freqSlider" min="20" max="2000" value="220">
+        <div class="section-label">
+            Partiels (harmoniques)
+            <span id="partialsHint" style="color:#444"> — cliquer/glisser pour éditer</span>
+        </div>
+        <canvas id="partialsCanvas" width="560" height="180"></canvas>
+        <div class="controls-row">
+            <button class="small-btn" id="resetPartials">Reset</button>
+        </div>
 
-        <label>Volume: <span id="volVal">28</span>%</label>
-        <input type="range" id="volume" min="0" max="100" value="28">
+        <hr style="margin: 20px 0; border: 0.5px solid #333;">
+
+        <button id="power">ACTIVER LE SON</button>
+
+        <div style="margin-top: 15px;">
+            <label>Fréquence: <span id="freqVal">220</span> Hz</label>
+            <input type="range" id="freqSlider" min="20" max="2000" value="220">
+
+            <label>Volume: <span id="volVal">28</span>%</label>
+            <input type="range" id="volume" min="0" max="100" value="28">
+        </div>
     </div>
 
 <script>
-let ctx, osc, gain;
+const NUM_PARTIALS = 16;
+const waveCanvas = document.getElementById('waveCanvas');
+const wCtx = waveCanvas.getContext('2d');
+const partCanvas = document.getElementById('partialsCanvas');
+const pCtx = partCanvas.getContext('2d');
+const powerBtn = document.getElementById('power');
+const showHarmonicsCheck = document.getElementById('showHarmonics');
+const partialsHint = document.getElementById('partialsHint');
+
+let audioCtx, osc, gain;
 let isStarted = false;
-let customWave = null;
 let currentWave = 'custom';
 
-const powerBtn = document.getElementById('power');
+// Partials amplitudes (sine components) for custom waveform
+let customPartials = new Float32Array(NUM_PARTIALS);
+customPartials[0] = 1.0; // start with just the fundamental
 
-function buildCustomWave() {
-    const real = new Float32Array(16);
-    const imag = new Float32Array(16);
-    real[0] = 0; imag[0] = 0;
-    real[1] = 1; imag[1] = 0.35;
-    real[2] = 0.35; imag[2] = -0.25;
-    real[3] = 0.12; imag[3] = 0.4;
-    real[4] = 0.06; imag[4] = -0.15;
-    real[5] = 0.1; imag[5] = 0.05;
-    for (let i = 6; i < 16; i++) {
-        real[i] = 0.08 / i;
-        imag[i] = (i % 2 ? 0.03 : -0.03) / i;
+let displayPartials = customPartials.slice();
+
+// --- Standard waveform Fourier coefficients ---
+function getStandardPartials(type) {
+    const p = new Float32Array(NUM_PARTIALS);
+    for (let k = 0; k < NUM_PARTIALS; k++) {
+        const n = k + 1;
+        switch (type) {
+            case 'sine':     p[k] = (n === 1) ? 1 : 0; break;
+            case 'square':   p[k] = (n % 2 === 1) ? 1 / n : 0; break;
+            case 'sawtooth': p[k] = Math.pow(-1, n + 1) / n; break;
+            case 'triangle': p[k] = (n % 2 === 1) ? Math.pow(-1, (n - 1) / 2) / (n * n) : 0; break;
+        }
     }
-    return ctx.createPeriodicWave(real, imag);
+    return p;
+}
+
+function updateDisplayPartials() {
+    displayPartials = currentWave === 'custom'
+        ? customPartials.slice()
+        : getStandardPartials(currentWave);
+}
+
+// --- Color per harmonic ---
+function hColor(k, alpha) {
+    const hue = 180 + (k / NUM_PARTIALS) * 140;
+    return 'hsla(' + (hue % 360) + ',80%,55%,' + (alpha ?? 1) + ')';
+}
+
+// --- Draw waveform ---
+function drawWaveform() {
+    const w = waveCanvas.width, h = waveCanvas.height, cy = h / 2;
+    wCtx.clearRect(0, 0, w, h);
+
+    // Grid
+    wCtx.strokeStyle = '#1a1a1a'; wCtx.lineWidth = 1;
+    for (let y = h / 4; y < h; y += h / 4) { wCtx.beginPath(); wCtx.moveTo(0, y); wCtx.lineTo(w, y); wCtx.stroke(); }
+    wCtx.strokeStyle = '#333'; wCtx.beginPath(); wCtx.moveTo(0, cy); wCtx.lineTo(w, cy); wCtx.stroke();
+
+    const cycles = 2, samples = w;
+
+    // Compute composite
+    const composite = new Float32Array(samples);
+    let maxAmp = 0;
+    for (let i = 0; i < samples; i++) {
+        const t = (i / samples) * cycles;
+        let val = 0;
+        for (let k = 0; k < NUM_PARTIALS; k++)
+            val += displayPartials[k] * Math.sin(2 * Math.PI * (k + 1) * t);
+        composite[i] = val;
+        if (Math.abs(val) > maxAmp) maxAmp = Math.abs(val);
+    }
+    if (maxAmp < 0.001) maxAmp = 1;
+    const scale = (cy - 10) / maxAmp;
+
+    // Individual harmonics
+    if (showHarmonicsCheck.checked) {
+        for (let k = 0; k < NUM_PARTIALS; k++) {
+            if (Math.abs(displayPartials[k]) < 0.01) continue;
+            wCtx.strokeStyle = hColor(k, 0.25);
+            wCtx.lineWidth = 1;
+            wCtx.beginPath();
+            for (let i = 0; i < samples; i++) {
+                const t = (i / samples) * cycles;
+                const y = cy - displayPartials[k] * Math.sin(2 * Math.PI * (k + 1) * t) * scale;
+                i === 0 ? wCtx.moveTo(i, y) : wCtx.lineTo(i, y);
+            }
+            wCtx.stroke();
+        }
+    }
+
+    // Composite
+    wCtx.strokeStyle = '#00e5ff'; wCtx.lineWidth = 2.5;
+    wCtx.shadowColor = '#00e5ff'; wCtx.shadowBlur = 6;
+    wCtx.beginPath();
+    for (let i = 0; i < samples; i++) {
+        const y = cy - composite[i] * scale;
+        i === 0 ? wCtx.moveTo(i, y) : wCtx.lineTo(i, y);
+    }
+    wCtx.stroke();
+    wCtx.shadowBlur = 0;
+}
+
+// --- Draw partials bar chart ---
+function drawPartials() {
+    const w = partCanvas.width, h = partCanvas.height;
+    const cy = h / 2, barW = w / NUM_PARTIALS, maxBarH = cy - 15, pad = 3;
+    pCtx.clearRect(0, 0, w, h);
+
+    // Center line
+    pCtx.strokeStyle = '#333'; pCtx.lineWidth = 1;
+    pCtx.beginPath(); pCtx.moveTo(0, cy); pCtx.lineTo(w, cy); pCtx.stroke();
+
+    // Scale labels
+    pCtx.fillStyle = '#333'; pCtx.font = '9px sans-serif'; pCtx.textAlign = 'right';
+    pCtx.fillText('+1', 18, 15);
+    pCtx.fillText('0', 18, cy - 3);
+    pCtx.fillText('−1', 18, h - 8);
+
+    for (let k = 0; k < NUM_PARTIALS; k++) {
+        const x = k * barW + pad, bw = barW - pad * 2;
+        const amp = displayPartials[k], barH = amp * maxBarH;
+
+        // Column guides
+        pCtx.strokeStyle = hColor(k, 0.12); pCtx.lineWidth = 1;
+        pCtx.strokeRect(x, cy - maxBarH, bw, maxBarH * 2);
+
+        // Bar
+        pCtx.fillStyle = hColor(k, 0.8);
+        if (barH >= 0) pCtx.fillRect(x, cy - barH, bw, Math.max(barH, 0.5));
+        else pCtx.fillRect(x, cy, bw, Math.max(-barH, 0.5));
+
+        // Harmonic number
+        pCtx.fillStyle = '#666'; pCtx.font = '10px sans-serif'; pCtx.textAlign = 'center';
+        pCtx.fillText(k + 1, x + bw / 2, h - 2);
+    }
+
+    // Overlay hint when not custom
+    if (currentWave !== 'custom') {
+        pCtx.fillStyle = 'rgba(10,10,10,0.55)';
+        pCtx.fillRect(0, 0, w, h);
+        pCtx.fillStyle = '#555'; pCtx.font = '12px sans-serif'; pCtx.textAlign = 'center';
+        pCtx.fillText('Sélectionner "Custom" pour éditer les partiels', w / 2, h - 12);
+    }
+}
+
+function redraw() { drawWaveform(); drawPartials(); }
+
+// --- Partials canvas interaction ---
+let isDragging = false;
+
+function partialFromEvent(e) {
+    const rect = partCanvas.getBoundingClientRect();
+    const sx = partCanvas.width / rect.width, sy = partCanvas.height / rect.height;
+    const x = (e.clientX - rect.left) * sx, y = (e.clientY - rect.top) * sy;
+    const idx = Math.floor(x / (partCanvas.width / NUM_PARTIALS));
+    if (idx < 0 || idx >= NUM_PARTIALS) return null;
+    const cy = partCanvas.height / 2, maxBarH = cy - 15;
+    let amp = Math.max(-1, Math.min(1, (cy - y) / maxBarH));
+    if (Math.abs(amp) < 0.04) amp = 0;
+    return { idx, amp };
+}
+
+function handleEdit(e) {
+    if (currentWave !== 'custom') return;
+    e.preventDefault();
+    const ev = e.touches ? e.touches[0] : e;
+    const r = partialFromEvent(ev);
+    if (!r) return;
+    customPartials[r.idx] = r.amp;
+    displayPartials = customPartials.slice();
+    applyCustomWave();
+    redraw();
+}
+
+partCanvas.addEventListener('mousedown',  e => { isDragging = true; handleEdit(e); });
+partCanvas.addEventListener('mousemove',  e => { if (isDragging) handleEdit(e); });
+document.addEventListener('mouseup', () => { isDragging = false; });
+partCanvas.addEventListener('touchstart', e => { isDragging = true; handleEdit(e); }, { passive: false });
+partCanvas.addEventListener('touchmove',  e => { if (isDragging) handleEdit(e); }, { passive: false });
+document.addEventListener('touchend', () => { isDragging = false; });
+
+// Double-click resets a single partial
+partCanvas.addEventListener('dblclick', e => {
+    if (currentWave !== 'custom') return;
+    const r = partialFromEvent(e);
+    if (!r) return;
+    customPartials[r.idx] = 0;
+    displayPartials = customPartials.slice();
+    applyCustomWave();
+    redraw();
+});
+
+// Reset all custom partials
+document.getElementById('resetPartials').onclick = () => {
+    customPartials.fill(0);
+    customPartials[0] = 1;
+    if (currentWave === 'custom') {
+        displayPartials = customPartials.slice();
+        applyCustomWave();
+        redraw();
+    }
+};
+
+// --- Audio ---
+function buildPeriodicWave() {
+    const real = new Float32Array(NUM_PARTIALS + 1);
+    const imag = new Float32Array(NUM_PARTIALS + 1);
+    for (let k = 0; k < NUM_PARTIALS; k++) imag[k + 1] = customPartials[k];
+    return audioCtx.createPeriodicWave(real, imag);
+}
+
+function applyCustomWave() {
+    if (!osc || !isStarted || currentWave !== 'custom') return;
+    osc.setPeriodicWave(buildPeriodicWave());
 }
 
 function setWaveform(type) {
     currentWave = type;
-    if (!osc) return;
-    if (type === 'custom') {
-        osc.setPeriodicWave(customWave);
-    } else {
-        osc.type = type;
+    updateDisplayPartials();
+    partialsHint.style.display = type === 'custom' ? 'inline' : 'none';
+
+    if (osc && isStarted) {
+        if (type === 'custom') osc.setPeriodicWave(buildPeriodicWave());
+        else osc.type = type;
     }
-    document.querySelectorAll('.wave-buttons button').forEach(b => {
-        b.classList.toggle('active', b.dataset.wave === type);
-    });
+
+    document.querySelectorAll('.wave-buttons button').forEach(b =>
+        b.classList.toggle('active', b.dataset.wave === type));
+    redraw();
 }
 
+// --- Power ---
 powerBtn.onclick = () => {
     if (!isStarted) {
-        ctx = new (window.AudioContext || window.webkitAudioContext)();
-
-        osc = ctx.createOscillator();
-        osc.frequency.value = document.getElementById('freqSlider').value;
-
-        customWave = buildCustomWave();
-
-        gain = ctx.createGain();
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        osc = audioCtx.createOscillator();
+        osc.frequency.value = +document.getElementById('freqSlider').value;
+        gain = audioCtx.createGain();
         gain.gain.value = document.getElementById('volume').value / 100;
-
         osc.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(audioCtx.destination);
 
-        setWaveform(currentWave);
+        if (currentWave === 'custom') osc.setPeriodicWave(buildPeriodicWave());
+        else osc.type = currentWave;
         osc.start();
 
-        powerBtn.textContent = "STOP";
-        powerBtn.style.background = "#ff4081";
+        powerBtn.textContent = 'STOP';
+        powerBtn.style.background = '#ff4081';
         isStarted = true;
-        setupControls();
     } else {
-        ctx.close();
-        location.reload();
+        osc.stop();
+        audioCtx.close();
+        osc = null; gain = null; audioCtx = null;
+        powerBtn.textContent = 'ACTIVER LE SON';
+        powerBtn.style.background = '#00e5ff';
+        isStarted = false;
     }
 };
 
-function setupControls() {
-    document.getElementById('freqSlider').oninput = (e) => {
-        osc.frequency.setTargetAtTime(e.target.value, ctx.currentTime, 0.05);
-        document.getElementById('freqVal').textContent = e.target.value;
-    };
-    document.getElementById('volume').oninput = (e) => {
-        gain.gain.setTargetAtTime(e.target.value / 100, ctx.currentTime, 0.05);
-        document.getElementById('volVal').textContent = e.target.value;
-    };
-    document.querySelectorAll('.wave-buttons button').forEach(btn => {
-        btn.onclick = () => setWaveform(btn.dataset.wave);
-    });
-}
-
-// Allow waveform selection before starting
+// --- Controls ---
+document.getElementById('freqSlider').oninput = e => {
+    document.getElementById('freqVal').textContent = e.target.value;
+    if (osc && isStarted) osc.frequency.setTargetAtTime(+e.target.value, audioCtx.currentTime, 0.05);
+};
+document.getElementById('volume').oninput = e => {
+    document.getElementById('volVal').textContent = e.target.value;
+    if (gain && isStarted) gain.gain.setTargetAtTime(e.target.value / 100, audioCtx.currentTime, 0.05);
+};
 document.querySelectorAll('.wave-buttons button').forEach(btn => {
     btn.onclick = () => setWaveform(btn.dataset.wave);
 });
+showHarmonicsCheck.onchange = redraw;
+
+// --- Init ---
+updateDisplayPartials();
+redraw();
 </script>
 </body>
 </html>
