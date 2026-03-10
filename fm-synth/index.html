@@ -9,6 +9,9 @@
         input { width: 250px; display: block; margin: 10px auto; }
         button { background: #00e5ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         label { color: #bbb; font-size: 0.9rem; }
+        canvas { display: block; margin: 10px auto; border-radius: 8px; max-width: 100%; }
+        #fftCanvas { background: #0a0a0a; border: 1px solid #333; }
+        .section-label { color: #555; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; margin: 15px 0 5px; }
     </style>
 </head>
 <body>
@@ -26,11 +29,17 @@
 
         <label>Index de Modulation (Gain): <span id="depthVal">300</span></label>
         <input type="range" id="modDepth" min="0" max="1000" value="300">
+
+        <div class="section-label">Spectre FFT</div>
+        <canvas id="fftCanvas" width="400" height="120"></canvas>
     </div>
 
 <script>
-let ctx, modulator, modGain, carrier, output;
+let ctx, modulator, modGain, carrier, output, analyser;
 let isStarted = false;
+let fftAnimId = null;
+const fftCanvas = document.getElementById('fftCanvas');
+const fCtx = fftCanvas.getContext('2d');
 
 const powerBtn = document.getElementById('power');
 
@@ -53,8 +62,12 @@ powerBtn.onclick = () => {
         // Connexions FM
         modulator.connect(modGain);
         modGain.connect(carrier.frequency); // C'est ici que la magie FM opère
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
         carrier.connect(output);
-        output.connect(ctx.destination);
+        output.connect(analyser);
+        analyser.connect(ctx.destination);
+        startFFT();
 
         carrier.start();
         modulator.start();
@@ -64,8 +77,13 @@ powerBtn.onclick = () => {
         isStarted = true;
         setupControls();
     } else {
-        ctx.close(); // Coupe le son proprement
-        location.reload(); // Recharge pour réinitialiser
+        if (fftAnimId) { cancelAnimationFrame(fftAnimId); fftAnimId = null; }
+        ctx.close();
+        ctx = null; analyser = null;
+        fCtx.clearRect(0, 0, fftCanvas.width, fftCanvas.height);
+        powerBtn.textContent = 'ACTIVER LE SON';
+        powerBtn.style.background = '#00e5ff';
+        isStarted = false;
     }
 };
 
@@ -83,6 +101,32 @@ function setupControls() {
         modGain.gain.setTargetAtTime(e.target.value, ctx.currentTime, 0.05);
         document.getElementById('depthVal').textContent = e.target.value;
     };
+}
+
+function startFFT() {
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+    function drawFFT() {
+        fftAnimId = requestAnimationFrame(drawFFT);
+        analyser.getByteFrequencyData(data);
+        const w = fftCanvas.width, h = fftCanvas.height;
+        fCtx.clearRect(0, 0, w, h);
+        const maxBin = Math.min(bufLen, Math.floor(8000 / (ctx.sampleRate / analyser.fftSize)));
+        const barW = w / maxBin;
+        for (let i = 0; i < maxBin; i++) {
+            const v = data[i] / 255;
+            const barH = v * h;
+            const hue = 180 + (i / maxBin) * 140;
+            fCtx.fillStyle = 'hsla(' + (hue % 360) + ',80%,55%,0.85)';
+            fCtx.fillRect(i * barW, h - barH, Math.max(barW - 0.5, 1), barH);
+        }
+        fCtx.fillStyle = '#444'; fCtx.font = '9px sans-serif'; fCtx.textAlign = 'center';
+        [500, 1000, 2000, 4000, 8000].forEach(f => {
+            const xPos = (f / 8000) * w;
+            if (xPos < w - 10) fCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, xPos, 10);
+        });
+    }
+    drawFFT();
 }
 </script>
 </body>

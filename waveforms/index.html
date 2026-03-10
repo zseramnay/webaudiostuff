@@ -25,6 +25,7 @@
         #showHarmonics { accent-color: #00e5ff; }
         .small-btn { background: #333; color: #888; padding: 4px 12px; font-size: 0.75rem; border-radius: 3px; }
         .small-btn:hover { background: #444; color: #ccc; }
+        #fftCanvas { background: #0a0a0a; border: 1px solid #333; }
     </style>
 </head>
 <body>
@@ -56,6 +57,9 @@
             <button class="small-btn" id="resetPartials">Reset</button>
         </div>
 
+        <div class="section-label">Spectre FFT</div>
+        <canvas id="fftCanvas" width="560" height="120"></canvas>
+
         <hr style="margin: 20px 0; border: 0.5px solid #333;">
 
         <button id="power">ACTIVER LE SON</button>
@@ -79,8 +83,11 @@ const powerBtn = document.getElementById('power');
 const showHarmonicsCheck = document.getElementById('showHarmonics');
 const partialsHint = document.getElementById('partialsHint');
 
-let audioCtx, osc, gain;
+let audioCtx, osc, gain, analyser;
 let isStarted = false;
+let fftAnimId = null;
+const fftCanvas = document.getElementById('fftCanvas');
+const fCtx = fftCanvas.getContext('2d');
 let currentWave = 'custom';
 
 // Partials amplitudes (sine components) for custom waveform
@@ -307,8 +314,12 @@ powerBtn.onclick = () => {
         osc.frequency.value = +document.getElementById('freqSlider').value;
         gain = audioCtx.createGain();
         gain.gain.value = document.getElementById('volume').value / 100;
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
         osc.connect(gain);
-        gain.connect(audioCtx.destination);
+        gain.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        startFFT();
 
         if (currentWave === 'custom') osc.setPeriodicWave(buildPeriodicWave());
         else osc.type = currentWave;
@@ -318,9 +329,11 @@ powerBtn.onclick = () => {
         powerBtn.style.background = '#ff4081';
         isStarted = true;
     } else {
+        if (fftAnimId) { cancelAnimationFrame(fftAnimId); fftAnimId = null; }
         osc.stop();
         audioCtx.close();
-        osc = null; gain = null; audioCtx = null;
+        osc = null; gain = null; audioCtx = null; analyser = null;
+        clearFFT();
         powerBtn.textContent = 'ACTIVER LE SON';
         powerBtn.style.background = '#00e5ff';
         isStarted = false;
@@ -340,6 +353,41 @@ document.querySelectorAll('.wave-buttons button').forEach(btn => {
     btn.onclick = () => setWaveform(btn.dataset.wave);
 });
 showHarmonicsCheck.onchange = redraw;
+
+// --- FFT ---
+function startFFT() {
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+    function drawFFT() {
+        fftAnimId = requestAnimationFrame(drawFFT);
+        analyser.getByteFrequencyData(data);
+        const w = fftCanvas.width, h = fftCanvas.height;
+        fCtx.clearRect(0, 0, w, h);
+        // freq axis
+        fCtx.strokeStyle = '#222'; fCtx.lineWidth = 1;
+        fCtx.beginPath(); fCtx.moveTo(0, h); fCtx.lineTo(w, h); fCtx.stroke();
+        // bars — show up to ~8kHz
+        const maxBin = Math.min(bufLen, Math.floor(8000 / (audioCtx.sampleRate / analyser.fftSize)));
+        const barW = w / maxBin;
+        for (let i = 0; i < maxBin; i++) {
+            const v = data[i] / 255;
+            const barH = v * h;
+            const hue = 180 + (i / maxBin) * 140;
+            fCtx.fillStyle = 'hsla(' + (hue % 360) + ',80%,55%,0.85)';
+            fCtx.fillRect(i * barW, h - barH, Math.max(barW - 0.5, 1), barH);
+        }
+        // freq labels
+        fCtx.fillStyle = '#444'; fCtx.font = '9px sans-serif'; fCtx.textAlign = 'center';
+        [500, 1000, 2000, 4000, 8000].forEach(f => {
+            const xPos = (f / 8000) * w;
+            if (xPos < w - 10) fCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, xPos, 10);
+        });
+    }
+    drawFFT();
+}
+function clearFFT() {
+    fCtx.clearRect(0, 0, fftCanvas.width, fftCanvas.height);
+}
 
 // --- Init ---
 updateDisplayPartials();

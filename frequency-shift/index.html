@@ -11,6 +11,9 @@
         button:hover { background: #3700b3; }
         input[type=range] { width: 100%; margin: 20px 0; accent-color: #03dac6; }
         .stats { font-size: 1.2rem; color: #03dac6; }
+        canvas { display: block; margin: 10px auto; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        #fftCanvas { background: #1a1a1a; border: 1px solid #444; }
+        .section-label { color: #888; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; margin: 10px 0 5px; }
     </style>
 </head>
 <body>
@@ -36,6 +39,9 @@
             <input type="range" id="volumeSlider" min="0" max="100" value="80" disabled>
             <div class="stats"><span id="volVal">80</span>%</div>
         </div>
+        <div class="section-label">FFT Spectrum</div>
+        <canvas id="fftCanvas" width="350" height="100"></canvas>
+
         <p style="font-size: 0.8rem; color: #888; margin-top: 20px;">Use headphones to avoid feedback!</p>
     </div>
 
@@ -53,6 +59,10 @@
         let shifterNode;
         let shiftParam;
         let gainNode;
+        let analyser;
+        let fftAnimId = null;
+        const fftCanvas = document.getElementById('fftCanvas');
+        const fCtx = fftCanvas.getContext('2d');
         let fileSource = null;
         let audioBuffer = null;
         let isPlaying = false;
@@ -65,7 +75,12 @@
                 shiftParam = shifterNode.parameters.get('shift');
                 gainNode = audioCtx.createGain();
                 gainNode.gain.value = volumeSlider.value / 100;
-                shifterNode.connect(gainNode).connect(audioCtx.destination);
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 2048;
+                shifterNode.connect(gainNode);
+                gainNode.connect(analyser);
+                analyser.connect(audioCtx.destination);
+                startFFT();
                 slider.disabled = false;
                 volumeSlider.disabled = false;
                 slider.oninput = (e) => {
@@ -144,6 +159,33 @@
                 if (isPlaying) stopFilePlayback();
             };
         });
+
+        function startFFT() {
+            if (fftAnimId) return;
+            const bufLen = analyser.frequencyBinCount;
+            const data = new Uint8Array(bufLen);
+            function drawFFT() {
+                fftAnimId = requestAnimationFrame(drawFFT);
+                analyser.getByteFrequencyData(data);
+                const w = fftCanvas.width, h = fftCanvas.height;
+                fCtx.clearRect(0, 0, w, h);
+                const maxBin = Math.min(bufLen, Math.floor(8000 / (audioCtx.sampleRate / analyser.fftSize)));
+                const barW = w / maxBin;
+                for (let i = 0; i < maxBin; i++) {
+                    const v = data[i] / 255;
+                    const barH = v * h;
+                    const hue = 180 + (i / maxBin) * 140;
+                    fCtx.fillStyle = 'hsla(' + (hue % 360) + ',80%,55%,0.85)';
+                    fCtx.fillRect(i * barW, h - barH, Math.max(barW - 0.5, 1), barH);
+                }
+                fCtx.fillStyle = '#666'; fCtx.font = '9px sans-serif'; fCtx.textAlign = 'center';
+                [500, 1000, 2000, 4000, 8000].forEach(f => {
+                    const xPos = (f / 8000) * w;
+                    if (xPos < w - 10) fCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, xPos, 10);
+                });
+            }
+            drawFFT();
+        }
     </script>
 </body>
 </html>
