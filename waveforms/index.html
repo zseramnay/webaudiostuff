@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Démo Waveforms</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding-top: 50px; }
+        .synth-card { background: #1e1e1e; display: inline-block; padding: 30px; border-radius: 15px; border: 1px solid #333; }
+        input { width: 250px; display: block; margin: 10px auto; }
+        button { background: #00e5ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        label { color: #bbb; font-size: 0.9rem; }
+        .wave-buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 15px 0; }
+        .wave-buttons button { background: #333; color: #bbb; padding: 8px 16px; font-size: 0.85rem; }
+        .wave-buttons button.active { background: #00e5ff; color: #121212; }
+    </style>
+</head>
+<body>
+
+    <div class="synth-card">
+        <h1>Waveforms</h1>
+        <button id="power">ACTIVER LE SON</button>
+        <hr style="margin: 20px 0; border: 0.5px solid #333;">
+
+        <label>Waveform</label>
+        <div class="wave-buttons" id="waveButtons">
+            <button data-wave="sine">Sine</button>
+            <button data-wave="square">Square</button>
+            <button data-wave="sawtooth">Sawtooth</button>
+            <button data-wave="triangle">Triangle</button>
+            <button data-wave="custom" class="active">Custom</button>
+        </div>
+
+        <label>Fréquence: <span id="freqVal">220</span> Hz</label>
+        <input type="range" id="freqSlider" min="20" max="2000" value="220">
+
+        <label>Volume: <span id="volVal">28</span>%</label>
+        <input type="range" id="volume" min="0" max="100" value="28">
+    </div>
+
+<script>
+let ctx, osc, gain;
+let isStarted = false;
+let customWave = null;
+let currentWave = 'custom';
+
+const powerBtn = document.getElementById('power');
+
+function buildCustomWave() {
+    const real = new Float32Array(16);
+    const imag = new Float32Array(16);
+    real[0] = 0; imag[0] = 0;
+    real[1] = 1; imag[1] = 0.35;
+    real[2] = 0.35; imag[2] = -0.25;
+    real[3] = 0.12; imag[3] = 0.4;
+    real[4] = 0.06; imag[4] = -0.15;
+    real[5] = 0.1; imag[5] = 0.05;
+    for (let i = 6; i < 16; i++) {
+        real[i] = 0.08 / i;
+        imag[i] = (i % 2 ? 0.03 : -0.03) / i;
+    }
+    return ctx.createPeriodicWave(real, imag);
+}
+
+function setWaveform(type) {
+    currentWave = type;
+    if (!osc) return;
+    if (type === 'custom') {
+        osc.setPeriodicWave(customWave);
+    } else {
+        osc.type = type;
+    }
+    document.querySelectorAll('.wave-buttons button').forEach(b => {
+        b.classList.toggle('active', b.dataset.wave === type);
+    });
+}
+
+powerBtn.onclick = () => {
+    if (!isStarted) {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        osc = ctx.createOscillator();
+        osc.frequency.value = document.getElementById('freqSlider').value;
+
+        customWave = buildCustomWave();
+
+        gain = ctx.createGain();
+        gain.gain.value = document.getElementById('volume').value / 100;
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        setWaveform(currentWave);
+        osc.start();
+
+        powerBtn.textContent = "STOP";
+        powerBtn.style.background = "#ff4081";
+        isStarted = true;
+        setupControls();
+    } else {
+        ctx.close();
+        location.reload();
+    }
+};
+
+function setupControls() {
+    document.getElementById('freqSlider').oninput = (e) => {
+        osc.frequency.setTargetAtTime(e.target.value, ctx.currentTime, 0.05);
+        document.getElementById('freqVal').textContent = e.target.value;
+    };
+    document.getElementById('volume').oninput = (e) => {
+        gain.gain.setTargetAtTime(e.target.value / 100, ctx.currentTime, 0.05);
+        document.getElementById('volVal').textContent = e.target.value;
+    };
+    document.querySelectorAll('.wave-buttons button').forEach(btn => {
+        btn.onclick = () => setWaveform(btn.dataset.wave);
+    });
+}
+
+// Allow waveform selection before starting
+document.querySelectorAll('.wave-buttons button').forEach(btn => {
+    btn.onclick = () => setWaveform(btn.dataset.wave);
+});
+</script>
+</body>
+</html>

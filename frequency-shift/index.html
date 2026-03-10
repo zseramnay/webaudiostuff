@@ -17,61 +17,132 @@
 
     <div class="card">
         <h2>Freq Shifter</h2>
-        <button id="startBtn">ACTIVATE MIC</button>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
+            <button id="startBtn">ACTIVATE MIC</button>
+            <label class="file-label" style="background: #6200ee; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; display: inline-block;">
+                LOAD FILE
+                <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+            </label>
+        </div>
+        <button id="playBtn" style="display: none;">&#9654; PLAY</button>
+        <div id="fileName" style="font-size: 0.8rem; color: #888; margin-bottom: 10px;"></div>
         <div>
             <label>Shift Amount</label>
             <input type="range" id="shiftSlider" min="-1000" max="1000" value="50" disabled>
             <div class="stats"><span id="freqVal">50</span> Hz</div>
+        </div>
+        <div>
+            <label>Output Volume</label>
+            <input type="range" id="volumeSlider" min="0" max="100" value="80" disabled>
+            <div class="stats"><span id="volVal">80</span>%</div>
         </div>
         <p style="font-size: 0.8rem; color: #888; margin-top: 20px;">Use headphones to avoid feedback!</p>
     </div>
 
     <script>
         const startBtn = document.getElementById('startBtn');
+        const fileInput = document.getElementById('fileInput');
+        const playBtn = document.getElementById('playBtn');
+        const fileNameDiv = document.getElementById('fileName');
         const slider = document.getElementById('shiftSlider');
         const freqVal = document.getElementById('freqVal');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volVal = document.getElementById('volVal');
         
         let audioCtx;
         let shifterNode;
+        let shiftParam;
+        let gainNode;
+        let fileSource = null;
+        let audioBuffer = null;
+        let isPlaying = false;
+
+        async function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                await audioCtx.audioWorklet.addModule('shifter-processor.js');
+                shifterNode = new AudioWorkletNode(audioCtx, 'shifter-processor');
+                shiftParam = shifterNode.parameters.get('shift');
+                gainNode = audioCtx.createGain();
+                gainNode.gain.value = volumeSlider.value / 100;
+                shifterNode.connect(gainNode).connect(audioCtx.destination);
+                slider.disabled = false;
+                volumeSlider.disabled = false;
+                slider.oninput = (e) => {
+                    const val = e.target.value;
+                    freqVal.textContent = val;
+                    shiftParam.setTargetAtTime(val, audioCtx.currentTime, 0.05);
+                };
+                volumeSlider.oninput = (e) => {
+                    const val = e.target.value;
+                    volVal.textContent = val;
+                    gainNode.gain.setTargetAtTime(val / 100, audioCtx.currentTime, 0.05);
+                };
+            }
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+        }
 
         startBtn.addEventListener('click', async () => {
-            if (!audioCtx) {
-                try {
-                    // 1. Initialize Audio Context
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    
-                    // 2. Load the Worklet Processor file
-                    await audioCtx.audioWorklet.addModule('shifter-processor.js');
-
-                    // 3. Request Microphone Access
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    const source = audioCtx.createMediaStreamSource(stream);
-
-                    // 4. Create the Shifter Node
-                    shifterNode = new AudioWorkletNode(audioCtx, 'shifter-processor');
-                    const shiftParam = shifterNode.parameters.get('shift');
-
-                    // 5. Connect the chain: Mic -> Shifter -> Speakers
-                    source.connect(shifterNode).connect(audioCtx.destination);
-
-                    // Enable UI
-                    slider.disabled = false;
-                    startBtn.textContent = "SYSTEM ACTIVE";
-                    startBtn.style.background = "#03dac6";
-
-                    // Handle Slider Changes
-                    slider.oninput = (e) => {
-                        const val = e.target.value;
-                        freqVal.textContent = val;
-                        // Smoothly transition to new frequency
-                        shiftParam.setTargetAtTime(val, audioCtx.currentTime, 0.05);
-                    };
-
-                } catch (err) {
-                    console.error("Audio initialization failed:", err);
-                    alert("Please allow microphone access and use a local server.");
-                }
+            if (startBtn.dataset.active) return;
+            try {
+                await initAudio();
+                stopFilePlayback();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const source = audioCtx.createMediaStreamSource(stream);
+                source.connect(shifterNode);
+                startBtn.dataset.active = '1';
+                startBtn.textContent = "MIC ACTIVE";
+                startBtn.style.background = "#03dac6";
+            } catch (err) {
+                console.error("Audio initialization failed:", err);
+                alert("Please allow microphone access and use a local server.");
             }
+        });
+
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+                await initAudio();
+                const arrayBuffer = await file.arrayBuffer();
+                audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                fileNameDiv.textContent = file.name;
+                playBtn.style.display = 'inline-block';
+                stopFilePlayback();
+            } catch (err) {
+                console.error("File decoding failed:", err);
+                alert("Could not decode audio file.");
+            }
+        });
+
+        function stopFilePlayback() {
+            if (fileSource) {
+                try { fileSource.stop(); } catch (_) {}
+                fileSource.disconnect();
+                fileSource = null;
+            }
+            isPlaying = false;
+            playBtn.innerHTML = '&#9654; PLAY';
+            playBtn.style.background = '#6200ee';
+        }
+
+        playBtn.addEventListener('click', () => {
+            if (!audioBuffer) return;
+            if (isPlaying) {
+                stopFilePlayback();
+                return;
+            }
+            fileSource = audioCtx.createBufferSource();
+            fileSource.buffer = audioBuffer;
+            fileSource.loop = true;
+            fileSource.connect(shifterNode);
+            fileSource.start();
+            isPlaying = true;
+            playBtn.innerHTML = '&#9724; STOP';
+            playBtn.style.background = '#cf6679';
+            fileSource.onended = () => {
+                if (isPlaying) stopFilePlayback();
+            };
         });
     </script>
 </body>
