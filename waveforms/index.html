@@ -26,9 +26,21 @@
         .small-btn { background: #333; color: #888; padding: 4px 12px; font-size: 0.75rem; border-radius: 3px; }
         .small-btn:hover { background: #444; color: #ccc; }
         #fftCanvas { background: #0a0a0a; border: 1px solid #333; }
+        nav { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; }
+        nav a { background: #333; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
+        nav a:hover { background: #555; color: #fff; }
+        nav a.active { background: #00e5ff; color: #121212; }
     </style>
 </head>
 <body>
+
+    <nav>
+        <a href="../index.html">🏠 Index</a>
+        <a href="../fm-synth/index.html">🎹 FM</a>
+        <a href="../amp-mod/index.html">📢 AM</a>
+        <a href="../waveforms/index.html" class="active">🔊 Waveforms</a>
+        <a href="../frequency-shift/index.html">🌀 Freq Shift</a>
+    </nav>
 
     <div class="synth-card">
         <h1>Waveforms</h1>

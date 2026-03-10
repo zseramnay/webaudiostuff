@@ -7,10 +7,21 @@
         .menu { display: flex; gap: 20px; justify-content: center; }
         .card { padding: 20px; background: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-decoration: none; color: #333; }
         .card:hover { transform: translateY(-5px); transition: 0.2s; }
+        nav { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 25px; }
+        nav a { background: #333; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
+        nav a:hover { background: #555; color: #fff; }
+        nav a.active { background: #00e5ff; color: #121212; }
     </style>
 </head>
 <body>
     <h1>Laboratoire Web Audio</h1>
+    <nav>
+        <a href="./index.html" class="active">🏠 Index</a>
+        <a href="./fm-synth/index.html">🎹 FM</a>
+        <a href="./amp-mod/index.html">📢 AM</a>
+        <a href="./waveforms/index.html">🔊 Waveforms</a>
+        <a href="./frequency-shift/index.html">🌀 Freq Shift</a>
+    </nav>
     <div class="menu">
         <a href="./fm-synth/index.html" class="card">
             <h2>🎹 Synthèse FM</h2>
