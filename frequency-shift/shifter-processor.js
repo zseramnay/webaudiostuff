@@ -1,7 +1,3 @@
-// shifter-processor.js
-// Utilisez un chemin relatif pour que GitHub Pages le trouve
-await audioCtx.audioWorklet.addModule('./shifter-processor.js');
-
 class FrequencyShifter extends AudioWorkletProcessor {
   constructor() {
     super();

@@ -42,6 +42,9 @@
         <label>Index de Modulation (Gain): <span id="depthVal">300</span></label>
         <input type="range" id="modDepth" min="0" max="1000" value="300">
 
+        <label>Volume: <span id="volVal">30</span>%</label>
+        <input type="range" id="volume" min="0" max="100" value="30">
+
         <div class="section-label">Spectre FFT</div>
         <canvas id="fftCanvas" width="400" height="120"></canvas>
     </div>
@@ -112,6 +115,10 @@ function setupControls() {
     document.getElementById('modDepth').oninput = (e) => {
         modGain.gain.setTargetAtTime(e.target.value, ctx.currentTime, 0.05);
         document.getElementById('depthVal').textContent = e.target.value;
+    };
+    document.getElementById('volume').oninput = (e) => {
+        output.gain.setTargetAtTime(e.target.value / 100, ctx.currentTime, 0.05);
+        document.getElementById('volVal').textContent = e.target.value;
     };
 }
 
