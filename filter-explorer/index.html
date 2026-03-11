@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filter Explorer</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 30px 10px; margin: 0; }
+        .synth-card {
+            background: #1e1e1e; display: inline-block; padding: 30px; border-radius: 15px;
+            border: 1px solid #333; max-width: 620px; width: calc(100% - 20px); box-sizing: border-box;
+        }
+        h1 { margin-top: 0; }
+        input[type="range"] { width: 80%; max-width: 300px; display: block; margin: 8px auto; }
+        button { background: #00e5ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; color: #121212; }
+        label { color: #bbb; font-size: 0.9rem; }
+        .filter-buttons { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
+        .filter-buttons button { background: #333; color: #bbb; padding: 8px 14px; font-size: 0.8rem; }
+        .filter-buttons button.active { background: #00e5ff; color: #121212; }
+        .source-buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
+        .source-buttons button { padding: 8px 16px; font-size: 0.85rem; }
+        .source-buttons button.active-src { background: #ff4081; color: white; }
+        canvas { display: block; margin: 10px auto; border-radius: 8px; max-width: 100%; }
+        #freqResponse { background: #0a0a0a; border: 1px solid #333; }
+        #fftCanvas { background: #0a0a0a; border: 1px solid #333; }
+        .section-label { color: #555; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; margin: 15px 0 5px; }
+        .param-group { margin: 10px 0; }
+        .info-box { background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px; margin: 10px 0; text-align: left; font-size: 0.8rem; color: #888; line-height: 1.5; }
+        .info-box strong { color: #00e5ff; }
+        nav { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; }
+        nav a { background: #333; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
+        nav a:hover { background: #555; color: #fff; }
+        nav a.active { background: #00e5ff; color: #121212; }
+        #fileName { font-size: 0.75rem; color: #666; margin: 4px 0; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="../index.html">🏠 Index</a>
+        <a href="../fm-synth/index.html">🎹 FM</a>
+        <a href="../amp-mod/index.html">📢 AM</a>
+        <a href="../waveforms/index.html">🔊 Waveforms</a>
+        <a href="../frequency-shift/index.html">🌀 Freq Shift</a>
+        <a href="../filter-explorer/index.html" class="active">🎛 Filters</a>
+    </nav>
+
+    <div class="synth-card">
+        <h1>🎛 Filter Explorer</h1>
+
+        <div class="section-label">Source</div>
+        <div class="source-buttons">
+            <button id="noiseBtn">White Noise</button>
+            <label style="background: #333; color: #bbb; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 0.85rem; display: inline-block;">
+                📁 Load File
+                <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+            </label>
+        </div>
+        <div id="fileName"></div>
+        <button id="stopBtn" style="display: none; background: #ff4081; margin: 5px auto;">STOP</button>
+
+        <hr style="margin: 15px 0; border: 0.5px solid #333;">
+
+        <div class="section-label">Filter Type</div>
+        <div class="filter-buttons" id="filterButtons">
+            <button data-type="lowpass" class="active">Lowpass</button>
+            <button data-type="highpass">Highpass</button>
+            <button data-type="bandpass">Bandpass</button>
+            <button data-type="notch">Notch</button>
+            <button data-type="lowshelf">Lowshelf</button>
+            <button data-type="highshelf">Highshelf</button>
+            <button data-type="peaking">Peaking</button>
+            <button data-type="allpass">Allpass</button>
+        </div>
+        <div class="info-box" id="filterInfo"></div>
+
+        <div class="param-group">
+            <label>Frequency: <span id="freqVal">1000</span> Hz</label>
+            <input type="range" id="freqSlider" min="20" max="20000" value="1000" step="1">
+        </div>
+        <div class="param-group" id="qGroup">
+            <label>Q (Resonance): <span id="qVal">1.00</span></label>
+            <input type="range" id="qSlider" min="0.1" max="30" value="1" step="0.1">
+        </div>
+        <div class="param-group" id="gainGroup" style="display: none;">
+            <label>Gain: <span id="gainVal">0</span> dB</label>
+            <input type="range" id="gainSlider" min="-40" max="40" value="0" step="0.5">
+        </div>
+
+        <div class="param-group">
+            <label>Volume: <span id="volVal">50</span>%</label>
+            <input type="range" id="volume" min="0" max="100" value="50">
+        </div>
+
+        <div class="section-label">Frequency Response</div>
+        <canvas id="freqResponse" width="560" height="200"></canvas>
+
+        <div class="section-label">FFT Spectrum</div>
+        <canvas id="fftCanvas" width="560" height="130"></canvas>
+    </div>
+
+<script>
+const FILTER_INFO = {
+    lowpass:   { desc: 'Laisse passer les fréquences <strong>en dessous</strong> de la fréquence de coupure. Atténue les aigus.', usesQ: true, usesGain: false },
+    highpass:  { desc: 'Laisse passer les fréquences <strong>au-dessus</strong> de la fréquence de coupure. Atténue les graves.', usesQ: true, usesGain: false },
+    bandpass:  { desc: 'Laisse passer une <strong>bande</strong> de fréquences autour de la fréquence centrale. Q contrôle la largeur.', usesQ: true, usesGain: false },
+    notch:     { desc: '<strong>Rejette</strong> une bande étroite de fréquences (inverse du bandpass). Q contrôle la largeur du creux.', usesQ: true, usesGain: false },
+    lowshelf:  { desc: 'Amplifie ou atténue les fréquences <strong>en dessous</strong> de la fréquence seuil, du montant spécifié en dB.', usesQ: false, usesGain: true },
+    highshelf: { desc: 'Amplifie ou atténue les fréquences <strong>au-dessus</strong> de la fréquence seuil, du montant spécifié en dB.', usesQ: false, usesGain: true },
+    peaking:   { desc: 'Amplifie ou atténue une <strong>bande</strong> de fréquences. Q contrôle la largeur, Gain le montant en dB.', usesQ: true, usesGain: true },
+    allpass:   { desc: 'Laisse passer toutes les fréquences mais modifie la <strong>phase</strong>. Utile pour le phasing et les effets.', usesQ: true, usesGain: false },
+};
+
+let audioCtx, filter, outputGain, analyser, noiseNode, fileSource, audioBuffer;
+let isPlaying = false;
+let fftAnimId = null;
+let currentSource = null; // 'noise' or 'file'
+
+const freqCanvas = document.getElementById('freqResponse');
+const frCtx = freqCanvas.getContext('2d');
+const fftCanvas = document.getElementById('fftCanvas');
+const fCtx = fftCanvas.getContext('2d');
+
+const filterInfoBox = document.getElementById('filterInfo');
+const qGroup = document.getElementById('qGroup');
+const gainGroup = document.getElementById('gainGroup');
+
+let currentFilterType = 'lowpass';
+
+// --- Logarithmic frequency slider ---
+const freqSlider = document.getElementById('freqSlider');
+freqSlider.min = 0;
+freqSlider.max = 1000;
+freqSlider.value = 500;
+freqSlider.step = 1;
+
+function sliderToFreq(v) {
+    return 20 * Math.pow(1000, v / 1000);
+}
+function freqToSlider(f) {
+    return 1000 * Math.log(f / 20) / Math.log(1000);
+}
+
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    filter = audioCtx.createBiquadFilter();
+    filter.type = currentFilterType;
+    filter.frequency.value = sliderToFreq(freqSlider.value);
+    filter.Q.value = document.getElementById('qSlider').value;
+    filter.gain.value = document.getElementById('gainSlider').value;
+
+    outputGain = audioCtx.createGain();
+    outputGain.gain.value = document.getElementById('volume').value / 100;
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096;
+
+    filter.connect(outputGain);
+    outputGain.connect(analyser);
+    analyser.connect(audioCtx.destination);
+}
+
+// --- White noise ---
+function createNoiseNode() {
+    const bufferSize = audioCtx.sampleRate * 2;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const node = audioCtx.createBufferSource();
+    node.buffer = buffer;
+    node.loop = true;
+    return node;
+}
+
+function stopAll() {
+    if (noiseNode) { try { noiseNode.stop(); } catch(_) {} noiseNode.disconnect(); noiseNode = null; }
+    if (fileSource) { try { fileSource.stop(); } catch(_) {} fileSource.disconnect(); fileSource = null; }
+    isPlaying = false;
+    currentSource = null;
+    document.getElementById('noiseBtn').classList.remove('active-src');
+    document.getElementById('stopBtn').style.display = 'none';
+}
+
+document.getElementById('noiseBtn').onclick = () => {
+    initAudio();
+    stopAll();
+    noiseNode = createNoiseNode();
+    noiseNode.connect(filter);
+    noiseNode.start();
+    isPlaying = true;
+    currentSource = 'noise';
+    document.getElementById('noiseBtn').classList.add('active-src');
+    document.getElementById('stopBtn').style.display = 'block';
+    startFFT();
+};
+
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    initAudio();
+    stopAll();
+    const arrayBuffer = await file.arrayBuffer();
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    document.getElementById('fileName').textContent = file.name;
+    playFile();
+});
+
+function playFile() {
+    if (!audioBuffer) return;
+    stopAll();
+    fileSource = audioCtx.createBufferSource();
+    fileSource.buffer = audioBuffer;
+    fileSource.loop = true;
+    fileSource.connect(filter);
+    fileSource.start();
+    isPlaying = true;
+    currentSource = 'file';
+    document.getElementById('stopBtn').style.display = 'block';
+    startFFT();
+    fileSource.onended = () => { if (currentSource === 'file') stopAll(); };
+}
+
+document.getElementById('stopBtn').onclick = stopAll;
+
+// --- Filter controls ---
+document.querySelectorAll('#filterButtons button').forEach(btn => {
+    btn.onclick = () => {
+        currentFilterType = btn.dataset.type;
+        document.querySelectorAll('#filterButtons button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (filter) filter.type = currentFilterType;
+        updateFilterUI();
+        drawFreqResponse();
+    };
+});
+
+function updateFilterUI() {
+    const info = FILTER_INFO[currentFilterType];
+    filterInfoBox.innerHTML = info.desc;
+    qGroup.style.display = info.usesQ ? 'block' : 'none';
+    gainGroup.style.display = info.usesGain ? 'block' : 'none';
+}
+
+freqSlider.oninput = (e) => {
+    const freq = sliderToFreq(+e.target.value);
+    document.getElementById('freqVal').textContent = Math.round(freq);
+    if (filter) filter.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.02);
+    drawFreqResponse();
+};
+// init display
+document.getElementById('freqVal').textContent = Math.round(sliderToFreq(freqSlider.value));
+
+document.getElementById('qSlider').oninput = (e) => {
+    document.getElementById('qVal').textContent = (+e.target.value).toFixed(1);
+    if (filter) filter.Q.setTargetAtTime(+e.target.value, audioCtx.currentTime, 0.02);
+    drawFreqResponse();
+};
+
+document.getElementById('gainSlider').oninput = (e) => {
+    document.getElementById('gainVal').textContent = e.target.value;
+    if (filter) filter.gain.setTargetAtTime(+e.target.value, audioCtx.currentTime, 0.02);
+    drawFreqResponse();
+};
+
+document.getElementById('volume').oninput = (e) => {
+    document.getElementById('volVal').textContent = e.target.value;
+    if (outputGain) outputGain.gain.setTargetAtTime(e.target.value / 100, audioCtx.currentTime, 0.02);
+};
+
+// --- Frequency response curve ---
+function drawFreqResponse() {
+    const w = freqCanvas.width, h = freqCanvas.height;
+    frCtx.clearRect(0, 0, w, h);
+
+    // Grid
+    frCtx.strokeStyle = '#1a1a1a'; frCtx.lineWidth = 1;
+    for (let y = h / 4; y < h; y += h / 4) {
+        frCtx.beginPath(); frCtx.moveTo(0, y); frCtx.lineTo(w, y); frCtx.stroke();
+    }
+    // 0dB line
+    const zeroY = h / 2;
+    frCtx.strokeStyle = '#333'; frCtx.beginPath(); frCtx.moveTo(0, zeroY); frCtx.lineTo(w, zeroY); frCtx.stroke();
+
+    // dB labels
+    frCtx.fillStyle = '#444'; frCtx.font = '9px sans-serif'; frCtx.textAlign = 'right';
+    const dbRange = 40;
+    for (let db = -30; db <= 30; db += 10) {
+        const y = zeroY - (db / dbRange) * (h / 2);
+        if (y > 5 && y < h - 5) frCtx.fillText(db + 'dB', 30, y + 3);
+    }
+
+    // Freq labels
+    frCtx.textAlign = 'center';
+    [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].forEach(f => {
+        const x = (Math.log(f / 20) / Math.log(1000)) * w;
+        if (x > 35 && x < w - 10) {
+            frCtx.fillText(f >= 1000 ? (f / 1000) + 'k' : f, x, h - 3);
+            frCtx.strokeStyle = '#1a1a1a'; frCtx.beginPath(); frCtx.moveTo(x, 0); frCtx.lineTo(x, h - 12); frCtx.stroke();
+        }
+    });
+
+    if (!filter) {
+        // Draw flat line if no audio context yet
+        frCtx.strokeStyle = '#00e5ff'; frCtx.lineWidth = 2;
+        frCtx.beginPath(); frCtx.moveTo(0, zeroY); frCtx.lineTo(w, zeroY); frCtx.stroke();
+        return;
+    }
+
+    // Compute response
+    const nPoints = w;
+    const freqArray = new Float32Array(nPoints);
+    const magResponse = new Float32Array(nPoints);
+    const phaseResponse = new Float32Array(nPoints);
+
+    for (let i = 0; i < nPoints; i++) {
+        freqArray[i] = 20 * Math.pow(1000, i / nPoints);
+    }
+    filter.getFrequencyResponse(freqArray, magResponse, phaseResponse);
+
+    // Magnitude curve
+    frCtx.strokeStyle = '#00e5ff'; frCtx.lineWidth = 2.5;
+    frCtx.shadowColor = '#00e5ff'; frCtx.shadowBlur = 4;
+    frCtx.beginPath();
+    for (let i = 0; i < nPoints; i++) {
+        const db = 20 * Math.log10(magResponse[i]);
+        const clampedDb = Math.max(-dbRange, Math.min(dbRange, db));
+        const y = zeroY - (clampedDb / dbRange) * (h / 2);
+        i === 0 ? frCtx.moveTo(i, y) : frCtx.lineTo(i, y);
+    }
+    frCtx.stroke();
+    frCtx.shadowBlur = 0;
+
+    // Phase curve (subtle)
+    frCtx.strokeStyle = 'rgba(255,64,129,0.3)'; frCtx.lineWidth = 1;
+    frCtx.beginPath();
+    for (let i = 0; i < nPoints; i++) {
+        const y = zeroY - (phaseResponse[i] / Math.PI) * (h / 2);
+        i === 0 ? frCtx.moveTo(i, y) : frCtx.lineTo(i, y);
+    }
+    frCtx.stroke();
+
+    // Cutoff marker
+    const cutoffX = freqToSlider(filter.frequency.value) / 1000 * w;
+    frCtx.strokeStyle = 'rgba(255,255,255,0.15)'; frCtx.lineWidth = 1; frCtx.setLineDash([4, 4]);
+    frCtx.beginPath(); frCtx.moveTo(cutoffX, 0); frCtx.lineTo(cutoffX, h); frCtx.stroke();
+    frCtx.setLineDash([]);
+}
+
+// --- FFT ---
+function startFFT() {
+    if (fftAnimId) return;
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+    function drawFFT() {
+        fftAnimId = requestAnimationFrame(drawFFT);
+        if (!isPlaying) { cancelAnimationFrame(fftAnimId); fftAnimId = null; fCtx.clearRect(0, 0, fftCanvas.width, fftCanvas.height); return; }
+        analyser.getByteFrequencyData(data);
+        const w = fftCanvas.width, h = fftCanvas.height;
+        fCtx.clearRect(0, 0, w, h);
+        // Log-scale FFT to match freq response
+        const nyquist = audioCtx.sampleRate / 2;
+        const nBars = w;
+        for (let i = 0; i < nBars; i++) {
+            const freq = 20 * Math.pow(1000, i / nBars);
+            const bin = Math.round(freq / nyquist * bufLen);
+            if (bin >= bufLen) break;
+            const v = data[bin] / 255;
+            const barH = v * h;
+            const hue = 180 + (i / nBars) * 140;
+            fCtx.fillStyle = 'hsla(' + (hue % 360) + ',80%,55%,0.85)';
+            fCtx.fillRect(i, h - barH, 1.5, barH);
+        }
+        // Freq labels
+        fCtx.fillStyle = '#444'; fCtx.font = '9px sans-serif'; fCtx.textAlign = 'center';
+        [100, 500, 1000, 2000, 5000, 10000].forEach(f => {
+            const xPos = (Math.log(f / 20) / Math.log(1000)) * w;
+            if (xPos > 10 && xPos < w - 10) fCtx.fillText(f >= 1000 ? (f / 1000) + 'k' : f, xPos, 10);
+        });
+    }
+    drawFFT();
+}
+
+// --- Init ---
+updateFilterUI();
+drawFreqResponse();
+</script>
+</body>
+</html>
