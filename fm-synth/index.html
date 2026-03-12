@@ -16,6 +16,8 @@
         nav a { background: #333; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
         nav a:hover { background: #555; color: #fff; }
         nav a.active { background: #00e5ff; color: #121212; }
+        .info-box { background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px; margin: 10px 0; text-align: left; font-size: 0.8rem; color: #888; line-height: 1.5; }
+        .info-box strong { color: #00e5ff; }
     </style>
 </head>
 <body>
@@ -33,6 +35,15 @@
 
     <div class="synth-card">
         <h1>Synthétiseur FM</h1>
+
+        <div class="info-box">
+            La <strong>synthèse FM</strong> (modulation de fréquence) fait varier la <strong>fréquence</strong> d'un oscillateur porteur au rythme d'un oscillateur modulateur.
+            Le <strong>ratio fm/fc</strong> détermine si le spectre est <strong>harmonique</strong> (ratios entiers : 1, 2, 3…) ou <strong>inharmonique</strong> (ratios non-entiers : 1.4, 2.7…).
+            L'<strong>index de modulation</strong> contrôle la richesse du timbre : plus il est élevé, plus il y a de bandes latérales dans le spectre.
+            Inventée par <strong>John Chowning</strong> (Stanford, 1967), popularisée par le <strong>Yamaha DX7</strong> (1983).
+            Les sons de <strong>cloches</strong>, <strong>pianos électriques</strong> et <strong>basses métalliques</strong> sont typiques de la FM.
+        </div>
+
         <button id="power">ACTIVER LE SON</button>
         <hr style="margin: 20px 0; border: 0.5px solid #333;">
 
