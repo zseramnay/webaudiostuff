@@ -18,6 +18,11 @@
         nav a { background: #444; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
         nav a:hover { background: #666; color: #fff; }
         nav a.active { background: #03dac6; color: #1a1a1a; }
+        .info-box { background: #1a1a1a; border: 1px solid #444; border-radius: 8px; padding: 10px; margin: 10px 0; text-align: left; font-size: 0.8rem; color: #888; line-height: 1.5; }
+        .info-box strong { color: #03dac6; }
+        .ring-toggle { display: inline-flex; align-items: center; gap: 8px; margin: 8px 0; }
+        .ring-toggle input[type=checkbox] { width: 18px; height: 18px; accent-color: #03dac6; }
+        hr { border: 0.5px solid #444; margin: 15px 0; }
     </style>
 </head>
 <body>
@@ -44,6 +49,32 @@
         </div>
         <button id="playBtn" style="display: none;">&#9654; PLAY</button>
         <div id="fileName" style="font-size: 0.8rem; color: #888; margin-bottom: 10px;"></div>
+
+        <hr>
+        <div class="section-label">Ring Modulation</div>
+        <div class="info-box">
+            La <strong>modulation en anneau</strong> (ring mod) multiplie le signal d'entrée par une sinusoïde.
+            Cela crée des <strong>fréquences somme et différence</strong> (f±fc) tout en supprimant la fondamentale — un son métallique, inharmonique.
+            Contrairement à la modulation d'amplitude (AM), il n'y a <strong>pas de signal original</strong> dans la sortie.
+            Combiné au <strong>frequency shifter</strong>, cela permet des textures très riches.
+        </div>
+        <label class="ring-toggle">
+            <input type="checkbox" id="ringToggle">
+            <span style="color: #ccc; font-weight: bold;">Activer Ring Mod</span>
+        </label>
+        <div>
+            <label>Ring Mod Freq</label>
+            <input type="range" id="ringFreqSlider" min="1" max="2000" value="200" disabled>
+            <div class="stats"><span id="ringFreqVal">200</span> Hz</div>
+        </div>
+        <div>
+            <label>Ring Mix (Dry/Wet)</label>
+            <input type="range" id="ringMixSlider" min="0" max="100" value="100" disabled>
+            <div class="stats"><span id="ringMixVal">100</span>%</div>
+        </div>
+
+        <hr>
+        <div class="section-label">Frequency Shifter</div>
         <div>
             <label>Shift Amount</label>
             <input type="range" id="shiftSlider" min="-1000" max="1000" value="50" disabled>
@@ -69,6 +100,11 @@
         const freqVal = document.getElementById('freqVal');
         const volumeSlider = document.getElementById('volumeSlider');
         const volVal = document.getElementById('volVal');
+        const ringToggle = document.getElementById('ringToggle');
+        const ringFreqSlider = document.getElementById('ringFreqSlider');
+        const ringFreqVal = document.getElementById('ringFreqVal');
+        const ringMixSlider = document.getElementById('ringMixSlider');
+        const ringMixVal = document.getElementById('ringMixVal');
         
         let audioCtx;
         let shifterNode;
@@ -82,6 +118,10 @@
         let audioBuffer = null;
         let isPlaying = false;
 
+        // Ring modulation nodes
+        let ringOsc, ringGain, ringDryGain, ringWetGain, ringInputNode;
+        let ringEnabled = false;
+
         async function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -92,6 +132,40 @@
                 gainNode.gain.value = volumeSlider.value / 100;
                 analyser = audioCtx.createAnalyser();
                 analyser.fftSize = 2048;
+
+                // Ring modulation: input → ringInputNode → [ringMod or dry] → shifterNode
+                ringInputNode = audioCtx.createGain();
+                ringInputNode.gain.value = 1;
+
+                // Ring mod carrier oscillator
+                ringOsc = audioCtx.createOscillator();
+                ringOsc.type = 'sine';
+                ringOsc.frequency.value = +ringFreqSlider.value;
+                ringOsc.start();
+
+                // Ring mod = multiply signal by carrier via a GainNode
+                // Signal → ringGain (whose gain is modulated by ringOsc)
+                ringGain = audioCtx.createGain();
+                ringGain.gain.value = 0; // modulated by oscillator
+                ringOsc.connect(ringGain.gain); // carrier modulates gain
+
+                // Dry/wet mix for ring mod
+                ringDryGain = audioCtx.createGain();
+                ringWetGain = audioCtx.createGain();
+
+                // Default: ring off → all dry
+                ringDryGain.gain.value = 1;
+                ringWetGain.gain.value = 0;
+
+                // Wiring: ringInputNode → dryGain → shifterNode
+                //         ringInputNode → ringGain (modulated) → wetGain → shifterNode
+                ringInputNode.connect(ringDryGain);
+                ringDryGain.connect(shifterNode);
+
+                ringInputNode.connect(ringGain);
+                ringGain.connect(ringWetGain);
+                ringWetGain.connect(shifterNode);
+
                 shifterNode.connect(gainNode);
                 gainNode.connect(analyser);
                 analyser.connect(audioCtx.destination);
@@ -112,6 +186,36 @@
             if (audioCtx.state === 'suspended') await audioCtx.resume();
         }
 
+        // --- Ring modulation controls ---
+        ringToggle.addEventListener('change', () => {
+            ringEnabled = ringToggle.checked;
+            ringFreqSlider.disabled = !ringEnabled;
+            ringMixSlider.disabled = !ringEnabled;
+            if (!audioCtx) return;
+            if (ringEnabled) {
+                const mix = +ringMixSlider.value / 100;
+                ringDryGain.gain.setTargetAtTime(1 - mix, audioCtx.currentTime, 0.02);
+                ringWetGain.gain.setTargetAtTime(mix, audioCtx.currentTime, 0.02);
+            } else {
+                ringDryGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.02);
+                ringWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.02);
+            }
+        });
+
+        ringFreqSlider.oninput = (e) => {
+            const val = +e.target.value;
+            ringFreqVal.textContent = val;
+            if (ringOsc) ringOsc.frequency.setTargetAtTime(val, audioCtx.currentTime, 0.02);
+        };
+
+        ringMixSlider.oninput = (e) => {
+            const val = +e.target.value;
+            ringMixVal.textContent = val;
+            if (!audioCtx || !ringEnabled) return;
+            ringDryGain.gain.setTargetAtTime(1 - val / 100, audioCtx.currentTime, 0.02);
+            ringWetGain.gain.setTargetAtTime(val / 100, audioCtx.currentTime, 0.02);
+        };
+
         startBtn.addEventListener('click', async () => {
             if (startBtn.dataset.active) return;
             try {
@@ -119,7 +223,7 @@
                 stopFilePlayback();
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const source = audioCtx.createMediaStreamSource(stream);
-                source.connect(shifterNode);
+                source.connect(ringInputNode);
                 startBtn.dataset.active = '1';
                 startBtn.textContent = "MIC ACTIVE";
                 startBtn.style.background = "#03dac6";
@@ -165,7 +269,7 @@
             fileSource = audioCtx.createBufferSource();
             fileSource.buffer = audioBuffer;
             fileSource.loop = true;
-            fileSource.connect(shifterNode);
+            fileSource.connect(ringInputNode);
             fileSource.start();
             isPlaying = true;
             playBtn.innerHTML = '&#9724; STOP';
