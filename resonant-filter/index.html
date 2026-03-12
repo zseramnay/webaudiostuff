@@ -84,8 +84,6 @@
             <button data-type="bandpass" class="active">Bandpass</button>
             <button data-type="lowpass">Lowpass</button>
             <button data-type="highpass">Highpass</button>
-            <button data-type="notch">Notch</button>
-            <button data-type="peaking">Peaking</button>
         </div>
 
         <div class="param-group">
@@ -95,10 +93,6 @@
         <div class="param-group">
             <label>Q (Résonance): <span id="qVal">30</span></label>
             <input type="range" id="qSlider" min="0.1" max="200" value="30" step="0.1">
-        </div>
-        <div class="param-group" id="gainGroup" style="display: none;">
-            <label>Gain filtre: <span id="filterGainVal">6</span> dB</label>
-            <input type="range" id="filterGainSlider" min="-40" max="40" value="6" step="0.5">
         </div>
         <div class="param-group">
             <label>Volume: <span id="volVal">50</span>%</label>
@@ -262,13 +256,6 @@ document.getElementById('qSlider').oninput = (e) => {
     drawFreqResponse();
 };
 
-document.getElementById('filterGainSlider').oninput = (e) => {
-    const g = +e.target.value;
-    document.getElementById('filterGainVal').textContent = g.toFixed(1);
-    if (filterNode) filterNode.gain.setTargetAtTime(g, audioCtx.currentTime, 0.01);
-    drawFreqResponse();
-};
-
 document.getElementById('volume').oninput = (e) => {
     document.getElementById('volVal').textContent = e.target.value;
     if (outputGain) outputGain.gain.setTargetAtTime(e.target.value / 100, audioCtx.currentTime, 0.02);
@@ -281,9 +268,6 @@ document.querySelectorAll('.type-buttons button').forEach(btn => {
         document.querySelectorAll('.type-buttons button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         if (filterNode) filterNode.type = currentType;
-        // Show gain slider only for peaking/lowshelf/highshelf
-        document.getElementById('gainGroup').style.display =
-            (currentType === 'peaking') ? 'block' : 'none';
         drawFreqResponse();
     };
 });
