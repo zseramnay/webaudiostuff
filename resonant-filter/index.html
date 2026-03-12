@@ -81,8 +81,7 @@
 
         <div class="section-label">Type de filtre</div>
         <div class="type-buttons">
-            <button data-type="bandpass" class="active">Bandpass</button>
-            <button data-type="lowpass">Lowpass</button>
+            <button data-type="lowpass" class="active">Lowpass</button>
             <button data-type="highpass">Highpass</button>
         </div>
 
@@ -137,7 +136,7 @@ function freqToSlider(f) { return 1000 * Math.log(f / 20) / Math.log(1000); }
 let audioCtx, filterNode, outputGain, analyser, analyserTime;
 let autoInterval = null;
 let isRunning = false;
-let currentType = 'bandpass';
+let currentType = 'lowpass';
 
 const waveCanvas = document.getElementById('waveCanvas');
 const wCtx = waveCanvas.getContext('2d');
@@ -333,7 +332,7 @@ function drawFreqResponse() {
             const f = freqs[i];
             const ratio = f / f0;
             let mag;
-            if (currentType === 'bandpass') {
+            if (currentType === 'lowpass') {
                 const denom = Math.sqrt(1 + q * q * Math.pow(ratio - 1 / ratio, 2));
                 mag = 1 / denom;
             } else {
