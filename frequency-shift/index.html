@@ -1,28 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Audio Frequency Shifter</title>
+    <title>Ring Mod / Freq Shifter</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box; background-color: #1a1a1a; color: white; }
-        .card { background: #2a2a2a; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; width: 350px; }
-        button { background: #6200ee; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 20px; transition: 0.3s; }
-        button:hover { background: #3700b3; }
-        input[type=range] { width: 100%; margin: 20px 0; accent-color: #03dac6; }
-        .stats { font-size: 1.2rem; color: #03dac6; }
-        canvas { display: block; margin: 10px auto; border-radius: 8px; width: 100%; box-sizing: border-box; }
-        #fftCanvas { background: #1a1a1a; border: 1px solid #444; }
-        .section-label { color: #888; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; margin: 10px 0 5px; }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box; background: #121212; color: white; }
+        .card { background: #1e1e1e; padding: 2rem; border-radius: 15px; border: 1px solid #333; text-align: center; width: 420px; max-width: calc(100% - 20px); box-sizing: border-box; }
+        h2 { margin-top: 0; }
+        button { background: #00e5ff; color: #121212; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.85; }
+        input[type=range] { width: 90%; max-width: 300px; display: block; margin: 8px auto; }
+        .stats { font-size: 1.1rem; color: #00e5ff; margin: 4px 0; }
+        canvas { display: block; margin: 10px auto; border-radius: 8px; max-width: 100%; }
+        #fftCanvas { background: #0a0a0a; border: 1px solid #333; }
+        .section-label { color: #555; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; margin: 15px 0 5px; }
+        .info-box { background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px; margin: 10px 0; text-align: left; font-size: 0.8rem; color: #888; line-height: 1.5; }
+        .info-box strong { color: #00e5ff; }
+        label { color: #bbb; font-size: 0.9rem; }
         nav { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; }
-        nav a { background: #444; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
-        nav a:hover { background: #666; color: #fff; }
-        nav a.active { background: #03dac6; color: #1a1a1a; }
-        .info-box { background: #1a1a1a; border: 1px solid #444; border-radius: 8px; padding: 10px; margin: 10px 0; text-align: left; font-size: 0.8rem; color: #888; line-height: 1.5; }
-        .info-box strong { color: #03dac6; }
-        .ring-toggle { display: inline-flex; align-items: center; gap: 8px; margin: 8px 0; }
-        .ring-toggle input[type=checkbox] { width: 18px; height: 18px; accent-color: #03dac6; }
-        hr { border: 0.5px solid #444; margin: 15px 0; }
+        nav a { background: #333; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
+        nav a:hover { background: #555; color: #fff; }
+        nav a.active { background: #00e5ff; color: #121212; }
+        .mode-buttons { display: flex; gap: 6px; justify-content: center; margin: 12px 0; }
+        .mode-buttons button { padding: 10px 20px; font-size: 0.9rem; }
+        .mode-buttons button.off { background: #333; color: #aaa; }
+        .mode-buttons button.on { background: #00e5ff; color: #121212; }
+        .src-buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+        .src-buttons button { padding: 8px 16px; font-size: 0.85rem; }
+        hr { border: 0.5px solid #333; margin: 15px 0; }
+        #fileName { font-size: 0.75rem; color: #666; margin: 4px 0; }
     </style>
 </head>
 <body>
@@ -39,272 +46,282 @@
     </nav>
 
     <div class="card">
-        <h2>Freq Shifter</h2>
-        <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 10px;">
-            <button id="startBtn">ACTIVATE MIC</button>
-            <label class="file-label" style="background: #6200ee; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; display: inline-block;">
-                LOAD FILE
+        <h2>🌀 Ring Mod / Freq Shifter</h2>
+
+        <div class="info-box" id="infoBox">
+            La <strong>modulation en anneau</strong> multiplie le signal par une sinusoïde de fréquence fc.
+            Cela produit deux bandes latérales : <strong>f+fc</strong> (somme) et <strong>f−fc</strong> (différence), sans conserver le signal original.
+            Le <strong>frequency shifter</strong> est un cas particulier : il ne garde qu'<strong>une seule</strong> des deux bandes (USB ou LSB),
+            grâce à un filtre de Hilbert. C'est un « demi ring mod ».
+        </div>
+
+        <div class="section-label">Source</div>
+        <div class="src-buttons">
+            <button id="micBtn">🎤 Micro</button>
+            <label style="background: #00e5ff; color: #121212; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; display: inline-block; font-size: 0.85rem;">
+                📁 Fichier
                 <input type="file" id="fileInput" accept="audio/*" style="display: none;">
             </label>
         </div>
         <button id="playBtn" style="display: none;">&#9654; PLAY</button>
-        <div id="fileName" style="font-size: 0.8rem; color: #888; margin-bottom: 10px;"></div>
+        <div id="fileName"></div>
 
         <hr>
-        <div class="section-label">Ring Modulation</div>
-        <div class="info-box">
-            La <strong>modulation en anneau</strong> (ring mod) multiplie le signal d'entrée par une sinusoïde.
-            Cela crée des <strong>fréquences somme et différence</strong> (f±fc) tout en supprimant la fondamentale — un son métallique, inharmonique.
-            Contrairement à la modulation d'amplitude (AM), il n'y a <strong>pas de signal original</strong> dans la sortie.
-            Combiné au <strong>frequency shifter</strong>, cela permet des textures très riches.
-        </div>
-        <label class="ring-toggle">
-            <input type="checkbox" id="ringToggle">
-            <span style="color: #ccc; font-weight: bold;">Activer Ring Mod</span>
-        </label>
-        <div>
-            <label>Ring Mod Freq</label>
-            <input type="range" id="ringFreqSlider" min="1" max="2000" value="200" disabled>
-            <div class="stats"><span id="ringFreqVal">200</span> Hz</div>
-        </div>
-        <div>
-            <label>Ring Mix (Dry/Wet)</label>
-            <input type="range" id="ringMixSlider" min="0" max="100" value="100" disabled>
-            <div class="stats"><span id="ringMixVal">100</span>%</div>
+        <div class="section-label">Mode</div>
+        <div class="mode-buttons">
+            <button id="modeRing" class="on">Ring Mod</button>
+            <button id="modeShift" class="off">Freq Shifter</button>
         </div>
 
-        <hr>
-        <div class="section-label">Frequency Shifter</div>
         <div>
-            <label>Shift Amount</label>
-            <input type="range" id="shiftSlider" min="-1000" max="1000" value="50" disabled>
-            <div class="stats"><span id="freqVal">50</span> Hz</div>
+            <label>Fréquence: <span id="freqVal">200</span> Hz</label>
+            <input type="range" id="freqSlider" min="1" max="2000" value="200" disabled>
         </div>
         <div>
-            <label>Output Volume</label>
+            <label>Volume: <span id="volVal">80</span>%</label>
             <input type="range" id="volumeSlider" min="0" max="100" value="80" disabled>
-            <div class="stats"><span id="volVal">80</span>%</div>
         </div>
-        <div class="section-label">FFT Spectrum</div>
-        <canvas id="fftCanvas" width="350" height="100"></canvas>
 
-        <p style="font-size: 0.8rem; color: #888; margin-top: 20px;">Use headphones to avoid feedback!</p>
+        <div class="section-label">FFT Spectrum</div>
+        <canvas id="fftCanvas" width="400" height="120"></canvas>
+
+        <p style="font-size: 0.8rem; color: #555; margin-top: 15px;">🎧 Utiliser un casque pour éviter le feedback !</p>
     </div>
 
-    <script>
-        const startBtn = document.getElementById('startBtn');
-        const fileInput = document.getElementById('fileInput');
-        const playBtn = document.getElementById('playBtn');
-        const fileNameDiv = document.getElementById('fileName');
-        const slider = document.getElementById('shiftSlider');
-        const freqVal = document.getElementById('freqVal');
-        const volumeSlider = document.getElementById('volumeSlider');
-        const volVal = document.getElementById('volVal');
-        const ringToggle = document.getElementById('ringToggle');
-        const ringFreqSlider = document.getElementById('ringFreqSlider');
-        const ringFreqVal = document.getElementById('ringFreqVal');
-        const ringMixSlider = document.getElementById('ringMixSlider');
-        const ringMixVal = document.getElementById('ringMixVal');
-        
-        let audioCtx;
-        let shifterNode;
-        let shiftParam;
-        let gainNode;
-        let analyser;
-        let fftAnimId = null;
-        const fftCanvas = document.getElementById('fftCanvas');
-        const fCtx = fftCanvas.getContext('2d');
-        let fileSource = null;
-        let audioBuffer = null;
-        let isPlaying = false;
+<script>
+    const micBtn = document.getElementById('micBtn');
+    const fileInput = document.getElementById('fileInput');
+    const playBtn = document.getElementById('playBtn');
+    const fileNameDiv = document.getElementById('fileName');
+    const freqSlider = document.getElementById('freqSlider');
+    const freqValEl = document.getElementById('freqVal');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const volValEl = document.getElementById('volVal');
+    const modeRingBtn = document.getElementById('modeRing');
+    const modeShiftBtn = document.getElementById('modeShift');
+    const infoBox = document.getElementById('infoBox');
+    const fftCanvas = document.getElementById('fftCanvas');
+    const fCtx = fftCanvas.getContext('2d');
 
-        // Ring modulation nodes
-        let ringOsc, ringGain, ringDryGain, ringWetGain, ringInputNode;
-        let ringEnabled = false;
+    let audioCtx;
+    let gainNode, analyser;
+    let fftAnimId = null;
+    let fileSource = null, audioBuffer = null, micSource = null;
+    let isPlaying = false;
 
-        async function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                await audioCtx.audioWorklet.addModule('shifter-processor.js');
-                shifterNode = new AudioWorkletNode(audioCtx, 'shifter-processor');
-                shiftParam = shifterNode.parameters.get('shift');
-                gainNode = audioCtx.createGain();
-                gainNode.gain.value = volumeSlider.value / 100;
-                analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 2048;
+    // Ring mod nodes
+    let ringOsc, ringModGain;
+    // Freq shifter nodes
+    let shifterNode, shiftParam;
 
-                // Ring modulation: input → ringInputNode → [ringMod or dry] → shifterNode
-                ringInputNode = audioCtx.createGain();
-                ringInputNode.gain.value = 1;
+    let currentMode = 'ring'; // 'ring' or 'shift'
+    let inputNode; // hub where sources connect
 
-                // Ring mod carrier oscillator
-                ringOsc = audioCtx.createOscillator();
-                ringOsc.type = 'sine';
-                ringOsc.frequency.value = +ringFreqSlider.value;
-                ringOsc.start();
+    const INFO_RING = `La <strong>modulation en anneau</strong> multiplie le signal par une sinusoïde de fréquence fc.
+        Cela produit deux bandes latérales : <strong>f+fc</strong> (somme) et <strong>f−fc</strong> (différence), sans conserver le signal original.
+        Résultat : un son <strong>métallique et inharmonique</strong>. Classique des sons de cloches et effets sci-fi.`;
 
-                // Ring mod = multiply signal by carrier via a GainNode
-                // Signal → ringGain (whose gain is modulated by ringOsc)
-                ringGain = audioCtx.createGain();
-                ringGain.gain.value = 0; // modulated by oscillator
-                ringOsc.connect(ringGain.gain); // carrier modulates gain
+    const INFO_SHIFT = `Le <strong>frequency shifter</strong> ne garde qu'<strong>une seule bande latérale</strong> (USB si freq > 0, LSB si freq < 0).
+        C'est un « <strong>demi ring mod</strong> » : au lieu de f+fc ET f−fc, il produit seulement l'un des deux.
+        Cela utilise un <strong>filtre de Hilbert</strong> pour séparer les bandes. Le décalage est <strong>linéaire</strong> (non harmonique).`;
 
-                // Dry/wet mix for ring mod
-                ringDryGain = audioCtx.createGain();
-                ringWetGain = audioCtx.createGain();
+    async function initAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-                // Default: ring off → all dry
-                ringDryGain.gain.value = 1;
-                ringWetGain.gain.value = 0;
+        inputNode = audioCtx.createGain();
+        inputNode.gain.value = 1;
 
-                // Wiring: ringInputNode → dryGain → shifterNode
-                //         ringInputNode → ringGain (modulated) → wetGain → shifterNode
-                ringInputNode.connect(ringDryGain);
-                ringDryGain.connect(shifterNode);
+        // --- Ring mod path ---
+        ringOsc = audioCtx.createOscillator();
+        ringOsc.type = 'sine';
+        ringOsc.frequency.value = +freqSlider.value;
+        ringOsc.start();
 
-                ringInputNode.connect(ringGain);
-                ringGain.connect(ringWetGain);
-                ringWetGain.connect(shifterNode);
+        ringModGain = audioCtx.createGain();
+        ringModGain.gain.value = 0; // will be modulated by ringOsc
+        ringOsc.connect(ringModGain.gain);
 
-                shifterNode.connect(gainNode);
-                gainNode.connect(analyser);
-                analyser.connect(audioCtx.destination);
-                startFFT();
-                slider.disabled = false;
-                volumeSlider.disabled = false;
-                slider.oninput = (e) => {
-                    const val = e.target.value;
-                    freqVal.textContent = val;
-                    shiftParam.setTargetAtTime(val, audioCtx.currentTime, 0.05);
-                };
-                volumeSlider.oninput = (e) => {
-                    const val = e.target.value;
-                    volVal.textContent = val;
-                    gainNode.gain.setTargetAtTime(val / 100, audioCtx.currentTime, 0.05);
-                };
-            }
-            if (audioCtx.state === 'suspended') await audioCtx.resume();
+        // --- Freq shifter path ---
+        await audioCtx.audioWorklet.addModule('shifter-processor.js');
+        shifterNode = new AudioWorkletNode(audioCtx, 'shifter-processor');
+        shiftParam = shifterNode.parameters.get('shift');
+        shiftParam.value = +freqSlider.value;
+
+        // --- Output ---
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = volumeSlider.value / 100;
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        gainNode.connect(analyser);
+        analyser.connect(audioCtx.destination);
+
+        wireMode();
+        startFFT();
+
+        freqSlider.disabled = false;
+        volumeSlider.disabled = false;
+    }
+
+    function wireMode() {
+        // Disconnect input from both paths
+        try { inputNode.disconnect(); } catch (_) {}
+        try { ringModGain.disconnect(); } catch (_) {}
+        try { shifterNode.disconnect(); } catch (_) {}
+
+        if (currentMode === 'ring') {
+            // input → ringModGain (gain modulated by ringOsc) → gainNode
+            inputNode.connect(ringModGain);
+            ringModGain.connect(gainNode);
+        } else {
+            // input → shifterNode → gainNode
+            inputNode.connect(shifterNode);
+            shifterNode.connect(gainNode);
         }
+    }
 
-        // --- Ring modulation controls ---
-        ringToggle.addEventListener('change', () => {
-            ringEnabled = ringToggle.checked;
-            ringFreqSlider.disabled = !ringEnabled;
-            ringMixSlider.disabled = !ringEnabled;
-            if (!audioCtx) return;
-            if (ringEnabled) {
-                const mix = +ringMixSlider.value / 100;
-                ringDryGain.gain.setTargetAtTime(1 - mix, audioCtx.currentTime, 0.02);
-                ringWetGain.gain.setTargetAtTime(mix, audioCtx.currentTime, 0.02);
-            } else {
-                ringDryGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.02);
-                ringWetGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.02);
-            }
-        });
-
-        ringFreqSlider.oninput = (e) => {
-            const val = +e.target.value;
-            ringFreqVal.textContent = val;
+    function updateFreq(val) {
+        if (currentMode === 'ring') {
             if (ringOsc) ringOsc.frequency.setTargetAtTime(val, audioCtx.currentTime, 0.02);
-        };
+        } else {
+            if (shiftParam) shiftParam.setTargetAtTime(val, audioCtx.currentTime, 0.02);
+        }
+    }
 
-        ringMixSlider.oninput = (e) => {
-            const val = +e.target.value;
-            ringMixVal.textContent = val;
-            if (!audioCtx || !ringEnabled) return;
-            ringDryGain.gain.setTargetAtTime(1 - val / 100, audioCtx.currentTime, 0.02);
-            ringWetGain.gain.setTargetAtTime(val / 100, audioCtx.currentTime, 0.02);
-        };
+    // --- Mode switching ---
+    function setMode(mode) {
+        currentMode = mode;
+        modeRingBtn.className = mode === 'ring' ? 'on' : 'off';
+        modeShiftBtn.className = mode === 'shift' ? 'on' : 'off';
+        infoBox.innerHTML = mode === 'ring' ? INFO_RING : INFO_SHIFT;
 
-        startBtn.addEventListener('click', async () => {
-            if (startBtn.dataset.active) return;
-            try {
-                await initAudio();
-                stopFilePlayback();
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const source = audioCtx.createMediaStreamSource(stream);
-                source.connect(ringInputNode);
-                startBtn.dataset.active = '1';
-                startBtn.textContent = "MIC ACTIVE";
-                startBtn.style.background = "#03dac6";
-            } catch (err) {
-                console.error("Audio initialization failed:", err);
-                alert("Please allow microphone access and use a local server.");
-            }
-        });
-
-        fileInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            try {
-                await initAudio();
-                const arrayBuffer = await file.arrayBuffer();
-                audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                fileNameDiv.textContent = file.name;
-                playBtn.style.display = 'inline-block';
-                stopFilePlayback();
-            } catch (err) {
-                console.error("File decoding failed:", err);
-                alert("Could not decode audio file.");
-            }
-        });
-
-        function stopFilePlayback() {
-            if (fileSource) {
-                try { fileSource.stop(); } catch (_) {}
-                fileSource.disconnect();
-                fileSource = null;
-            }
-            isPlaying = false;
-            playBtn.innerHTML = '&#9654; PLAY';
-            playBtn.style.background = '#6200ee';
+        // Adjust slider range
+        if (mode === 'ring') {
+            freqSlider.min = 1;
+            freqSlider.max = 2000;
+        } else {
+            freqSlider.min = -1000;
+            freqSlider.max = 1000;
         }
 
-        playBtn.addEventListener('click', () => {
-            if (!audioBuffer) return;
-            if (isPlaying) {
-                stopFilePlayback();
-                return;
-            }
-            fileSource = audioCtx.createBufferSource();
-            fileSource.buffer = audioBuffer;
-            fileSource.loop = true;
-            fileSource.connect(ringInputNode);
-            fileSource.start();
-            isPlaying = true;
-            playBtn.innerHTML = '&#9724; STOP';
-            playBtn.style.background = '#cf6679';
-            fileSource.onended = () => {
-                if (isPlaying) stopFilePlayback();
-            };
-        });
-
-        function startFFT() {
-            if (fftAnimId) return;
-            const bufLen = analyser.frequencyBinCount;
-            const data = new Uint8Array(bufLen);
-            function drawFFT() {
-                fftAnimId = requestAnimationFrame(drawFFT);
-                analyser.getByteFrequencyData(data);
-                const w = fftCanvas.width, h = fftCanvas.height;
-                fCtx.clearRect(0, 0, w, h);
-                const maxBin = Math.min(bufLen, Math.floor(8000 / (audioCtx.sampleRate / analyser.fftSize)));
-                const barW = w / maxBin;
-                for (let i = 0; i < maxBin; i++) {
-                    const v = data[i] / 255;
-                    const barH = v * h;
-                    const hue = 180 + (i / maxBin) * 140;
-                    fCtx.fillStyle = 'hsla(' + (hue % 360) + ',80%,55%,0.85)';
-                    fCtx.fillRect(i * barW, h - barH, Math.max(barW - 0.5, 1), barH);
-                }
-                fCtx.fillStyle = '#666'; fCtx.font = '9px sans-serif'; fCtx.textAlign = 'center';
-                [500, 1000, 2000, 4000, 8000].forEach(f => {
-                    const xPos = (f / 8000) * w;
-                    if (xPos < w - 10) fCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, xPos, 10);
-                });
-            }
-            drawFFT();
+        const val = +freqSlider.value;
+        freqValEl.textContent = val;
+        if (audioCtx) {
+            updateFreq(val);
+            wireMode();
         }
-    </script>
+    }
+
+    modeRingBtn.onclick = () => setMode('ring');
+    modeShiftBtn.onclick = () => setMode('shift');
+
+    // --- Controls ---
+    freqSlider.oninput = (e) => {
+        const val = +e.target.value;
+        freqValEl.textContent = val;
+        if (audioCtx) updateFreq(val);
+    };
+
+    volumeSlider.oninput = (e) => {
+        volValEl.textContent = e.target.value;
+        if (gainNode) gainNode.gain.setTargetAtTime(e.target.value / 100, audioCtx.currentTime, 0.05);
+    };
+
+    // --- Mic ---
+    micBtn.addEventListener('click', async () => {
+        if (micBtn.dataset.active) return;
+        try {
+            await initAudio();
+            stopFilePlayback();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            micSource = audioCtx.createMediaStreamSource(stream);
+            micSource.connect(inputNode);
+            micBtn.dataset.active = '1';
+            micBtn.textContent = '🎤 MIC ON';
+            micBtn.style.background = '#ff4081';
+            micBtn.style.color = 'white';
+        } catch (err) {
+            console.error('Mic error:', err);
+            alert('Autoriser le micro et utiliser un serveur local.');
+        }
+    });
+
+    // --- File ---
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            await initAudio();
+            const arrayBuffer = await file.arrayBuffer();
+            audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            fileNameDiv.textContent = file.name;
+            playBtn.style.display = 'inline-block';
+            stopFilePlayback();
+        } catch (err) {
+            console.error('File error:', err);
+        }
+    });
+
+    function stopFilePlayback() {
+        if (fileSource) {
+            try { fileSource.stop(); } catch (_) {}
+            try { fileSource.disconnect(); } catch (_) {}
+            fileSource = null;
+        }
+        isPlaying = false;
+        playBtn.innerHTML = '&#9654; PLAY';
+        playBtn.style.background = '#00e5ff';
+        playBtn.style.color = '#121212';
+    }
+
+    playBtn.addEventListener('click', () => {
+        if (!audioBuffer) return;
+        if (isPlaying) { stopFilePlayback(); return; }
+        fileSource = audioCtx.createBufferSource();
+        fileSource.buffer = audioBuffer;
+        fileSource.loop = true;
+        fileSource.connect(inputNode);
+        fileSource.start();
+        isPlaying = true;
+        playBtn.innerHTML = '&#9724; STOP';
+        playBtn.style.background = '#ff4081';
+        playBtn.style.color = 'white';
+        fileSource.onended = () => { if (isPlaying) stopFilePlayback(); };
+    });
+
+    // --- FFT ---
+    function startFFT() {
+        if (fftAnimId) return;
+        const bufLen = analyser.frequencyBinCount;
+        const data = new Uint8Array(bufLen);
+        function drawFFT() {
+            fftAnimId = requestAnimationFrame(drawFFT);
+            analyser.getByteFrequencyData(data);
+            const w = fftCanvas.width, h = fftCanvas.height;
+            fCtx.clearRect(0, 0, w, h);
+            const nyquist = audioCtx.sampleRate / 2;
+            const nBars = w;
+            for (let i = 0; i < nBars; i++) {
+                const freq = 20 * Math.pow(1000, i / nBars);
+                const bin = Math.round(freq / nyquist * bufLen);
+                if (bin >= bufLen) break;
+                const v = data[bin] / 255;
+                const barH = v * h;
+                const hue = 180 + (i / nBars) * 140;
+                fCtx.fillStyle = 'hsla(' + (hue % 360) + ',80%,55%,0.85)';
+                fCtx.fillRect(i, h - barH, 1.5, barH);
+            }
+            fCtx.fillStyle = '#555'; fCtx.font = '9px sans-serif'; fCtx.textAlign = 'center';
+            [100, 500, 1000, 2000, 5000, 10000].forEach(f => {
+                const xPos = (Math.log(f / 20) / Math.log(1000)) * w;
+                if (xPos > 10 && xPos < w - 10) fCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, xPos, 10);
+            });
+        }
+        drawFFT();
+    }
+
+    // Init display
+    setMode('ring');
+</script>
 </body>
 </html>
