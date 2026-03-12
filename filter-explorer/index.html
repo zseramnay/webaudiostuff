@@ -89,7 +89,6 @@
             <button data-type="lowshelf">Lowshelf</button>
             <button data-type="highshelf">Highshelf</button>
             <button data-type="peaking">Peaking</button>
-            <button data-type="allpass">Allpass</button>
         </div>
         <div class="info-box" id="filterInfo"></div>
 
@@ -150,7 +149,6 @@ const FILTER_INFO = {
     lowshelf:  { desc: 'Amplifie ou atténue les fréquences <strong>en dessous</strong> de la fréquence seuil, du montant spécifié en dB.', usesQ: false, usesGain: true },
     highshelf: { desc: 'Amplifie ou atténue les fréquences <strong>au-dessus</strong> de la fréquence seuil, du montant spécifié en dB.', usesQ: false, usesGain: true },
     peaking:   { desc: 'Amplifie ou atténue une <strong>bande</strong> de fréquences. Q contrôle la largeur, Gain le montant en dB.', usesQ: true, usesGain: true },
-    allpass:   { desc: 'Laisse passer toutes les fréquences mais modifie la <strong>phase</strong>. Utile pour le phasing et les effets.', usesQ: true, usesGain: false },
 };
 
 let audioCtx, filter, outputGain, analyser, noiseNode, fileSource, audioBuffer;

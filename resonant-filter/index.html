@@ -323,13 +323,7 @@ function drawFreqResponse() {
     frCtx.strokeStyle = '#333';
     frCtx.beginPath(); frCtx.moveTo(0, zeroY); frCtx.lineTo(w, zeroY); frCtx.stroke();
 
-    // dB labels
-    frCtx.fillStyle = '#444'; frCtx.font = '9px sans-serif'; frCtx.textAlign = 'right';
-    const dbRange = 40;
-    for (let db = -30; db <= 30; db += 10) {
-        const y = zeroY - (db / dbRange) * (h * 0.9);
-        if (y > 5 && y < h - 5) frCtx.fillText(db + 'dB', 32, y + 3);
-    }
+    // dB labels drawn after auto-scaling (see below)
 
     // Freq labels
     frCtx.textAlign = 'center';
@@ -341,46 +335,58 @@ function drawFreqResponse() {
         }
     });
 
+    // Compute magnitude response
+    const dbValues = new Float32Array(nPoints);
     if (filterNode) {
         const magResponse = new Float32Array(nPoints);
         const phaseResponse = new Float32Array(nPoints);
         filterNode.getFrequencyResponse(freqs, magResponse, phaseResponse);
-
-        frCtx.beginPath();
-        frCtx.strokeStyle = '#00e5ff'; frCtx.lineWidth = 2;
-        frCtx.shadowColor = '#00e5ff'; frCtx.shadowBlur = 4;
-        for (let i = 0; i < nPoints; i++) {
-            const db = 20 * Math.log10(magResponse[i]);
-            const clampedDb = Math.max(-dbRange, Math.min(dbRange, db));
-            const y = zeroY - (clampedDb / dbRange) * (h * 0.9);
-            i === 0 ? frCtx.moveTo(i, y) : frCtx.lineTo(i, y);
-        }
-        frCtx.stroke();
-        frCtx.shadowBlur = 0;
+        for (let i = 0; i < nPoints; i++) dbValues[i] = 20 * Math.log10(magResponse[i] + 1e-10);
     } else {
-        // Draw theoretical response before audio init
         const f0 = getFreq();
         const q = getQ();
-        frCtx.beginPath();
-        frCtx.strokeStyle = '#00e5ff'; frCtx.lineWidth = 2;
         for (let i = 0; i < nPoints; i++) {
             const f = freqs[i];
             const ratio = f / f0;
             let mag;
             if (currentType === 'bandpass') {
-                // |H(f)| for BPF
                 const denom = Math.sqrt(1 + q * q * Math.pow(ratio - 1 / ratio, 2));
                 mag = 1 / denom;
             } else {
                 mag = 1;
             }
-            const db = 20 * Math.log10(mag + 1e-10);
-            const clampedDb = Math.max(-dbRange, Math.min(dbRange, db));
-            const y = zeroY - (clampedDb / dbRange) * (h * 0.9);
-            i === 0 ? frCtx.moveTo(i, y) : frCtx.lineTo(i, y);
+            dbValues[i] = 20 * Math.log10(mag + 1e-10);
         }
-        frCtx.stroke();
     }
+
+    // Auto-scale: find peak dB to adapt range
+    let maxDb = -Infinity, minDb = Infinity;
+    for (let i = 0; i < nPoints; i++) {
+        if (dbValues[i] > maxDb) maxDb = dbValues[i];
+        if (dbValues[i] < minDb) minDb = dbValues[i];
+    }
+    const peakAbs = Math.max(Math.abs(maxDb), Math.abs(minDb), 6);
+    const autoRange = Math.ceil(peakAbs / 10) * 10 + 10; // round up to next 10 + margin
+
+    // Redraw dB labels with auto range
+    frCtx.fillStyle = '#444'; frCtx.font = '9px sans-serif'; frCtx.textAlign = 'right';
+    const step = autoRange > 60 ? 20 : 10;
+    for (let db = -autoRange + step; db < autoRange; db += step) {
+        const y = zeroY - (db / autoRange) * (h * 0.9);
+        if (y > 5 && y < h - 5) frCtx.fillText(db + 'dB', 32, y + 3);
+    }
+
+    // Draw curve
+    frCtx.beginPath();
+    frCtx.strokeStyle = '#00e5ff'; frCtx.lineWidth = 2;
+    frCtx.shadowColor = '#00e5ff'; frCtx.shadowBlur = 4;
+    for (let i = 0; i < nPoints; i++) {
+        const clampedDb = Math.max(-autoRange, Math.min(autoRange, dbValues[i]));
+        const y = zeroY - (clampedDb / autoRange) * (h * 0.9);
+        i === 0 ? frCtx.moveTo(i, y) : frCtx.lineTo(i, y);
+    }
+    frCtx.stroke();
+    frCtx.shadowBlur = 0;
 
     // Mark filter frequency
     const fMark = getFreq();
