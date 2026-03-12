@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comb Filter</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 30px 10px; margin: 0; }
+        .synth-card {
+            background: #1e1e1e; display: inline-block; padding: 30px; border-radius: 15px;
+            border: 1px solid #333; max-width: 620px; width: calc(100% - 20px); box-sizing: border-box;
+        }
+        h1 { margin-top: 0; }
+        input[type="range"] { width: 80%; max-width: 300px; display: block; margin: 8px auto; }
+        button { background: #00e5ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; color: #121212; }
+        label { color: #bbb; font-size: 0.9rem; }
+        canvas { display: block; margin: 10px auto; border-radius: 8px; max-width: 100%; }
+        #combCanvas { background: #0a0a0a; border: 1px solid #333; }
+        #fftCanvas { background: #0a0a0a; border: 1px solid #333; }
+        .section-label { color: #555; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; margin: 15px 0 5px; }
+        .param-group { margin: 10px 0; }
+        .info-box { background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px; margin: 10px 0; text-align: left; font-size: 0.8rem; color: #888; line-height: 1.5; }
+        .info-box strong { color: #00e5ff; }
+        .source-buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
+        .source-buttons button { padding: 8px 16px; font-size: 0.85rem; }
+        .source-buttons button.active-src { background: #ff4081; color: white; }
+        .type-buttons { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
+        .type-buttons button { background: #333; color: #bbb; padding: 8px 14px; font-size: 0.8rem; }
+        .type-buttons button.active { background: #00e5ff; color: #121212; }
+        .stat { display: inline-block; background: #0a0a0a; border: 1px solid #333; border-radius: 6px; padding: 6px 14px; margin: 3px; font-size: 0.8rem; }
+        .stat strong { color: #00e5ff; }
+        nav { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; }
+        nav a { background: #333; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
+        nav a:hover { background: #555; color: #fff; }
+        nav a.active { background: #00e5ff; color: #121212; }
+        #fileName { font-size: 0.75rem; color: #666; margin: 4px 0; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="../index.html">🏠 Index</a>
+        <a href="../fm-synth/index.html">🎹 FM</a>
+        <a href="../amp-mod/index.html">📢 AM</a>
+        <a href="../waveforms/index.html">🔊 Waveforms</a>
+        <a href="../frequency-shift/index.html">🌀 Freq Shift</a>
+        <a href="../filter-explorer/index.html">🎛 Filters</a>
+        <a href="../comb-filter/index.html" class="active">🔱 Comb</a>
+    </nav>
+
+    <div class="synth-card">
+        <h1>🔱 Filtre en Peigne</h1>
+
+        <div class="info-box">
+            Un <strong>filtre en peigne</strong> (comb filter) ajoute une copie retardée du signal à lui-même.
+            Les pics apparaissent à des multiples de <strong>1/délai</strong>.
+            <strong>Feedback</strong> (IIR) : le signal retardé est réinjecté en boucle, créant des résonances prononcées.
+            <strong>Feedforward</strong> (FIR) : le signal retardé est ajouté une seule fois, créant des creux (notches).
+        </div>
+
+        <div class="section-label">Source</div>
+        <div class="source-buttons">
+            <button id="noiseBtn">White Noise</button>
+            <button id="pulseBtn">Impulsion</button>
+            <label style="background: #333; color: #bbb; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 0.85rem; display: inline-block;">
+                📁 Load File
+                <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+            </label>
+        </div>
+        <div id="fileName"></div>
+        <button id="stopBtn" style="display: none; background: #ff4081; margin: 5px auto;">STOP</button>
+
+        <hr style="margin: 15px 0; border: 0.5px solid #333;">
+
+        <div class="section-label">Type</div>
+        <div class="type-buttons">
+            <button data-type="feedback" class="active">Feedback (IIR)</button>
+            <button data-type="feedforward">Feedforward (FIR)</button>
+        </div>
+
+        <div class="param-group">
+            <label>Délai: <span id="delayVal">5.00</span> ms</label>
+            <input type="range" id="delaySlider" min="0.2" max="50" value="5" step="0.01">
+        </div>
+        <div class="param-group">
+            <label>Fréquence fondamentale: <span id="fundFreq">200</span> Hz</label>
+        </div>
+        <div class="param-group">
+            <label>Feedback / Gain: <span id="fbVal">0.70</span></label>
+            <input type="range" id="fbSlider" min="-0.95" max="0.95" value="0.7" step="0.01">
+        </div>
+        <div class="param-group">
+            <label>Mix (Dry/Wet): <span id="mixVal">50</span>%</label>
+            <input type="range" id="mixSlider" min="0" max="100" value="50">
+        </div>
+        <div class="param-group">
+            <label>Volume: <span id="volVal">50</span>%</label>
+            <input type="range" id="volume" min="0" max="100" value="50">
+        </div>
+
+        <div class="section-label">Réponse en fréquence théorique</div>
+        <canvas id="combCanvas" width="560" height="200"></canvas>
+        <div style="margin: 5px 0;">
+            <span class="stat">Délai: <strong><span id="statDelay">5.00</span> ms</strong></span>
+            <span class="stat">f₀: <strong><span id="statF0">200</span> Hz</strong></span>
+            <span class="stat">Note ≈ <strong><span id="statNote">G3</span></strong></span>
+        </div>
+
+        <div class="section-label">FFT Spectrum</div>
+        <canvas id="fftCanvas" width="560" height="130"></canvas>
+    </div>
+
+<script>
+// --- Note names ---
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function freqToNote(f) {
+    if (f <= 0) return '—';
+    const midi = 12 * Math.log2(f / 440) + 69;
+    const note = Math.round(midi);
+    const name = NOTE_NAMES[((note % 12) + 12) % 12];
+    const octave = Math.floor(note / 12) - 1;
+    const cents = Math.round((midi - note) * 100);
+    return name + octave + (cents !== 0 ? (cents > 0 ? '+' : '') + cents + 'c' : '');
+}
+
+let audioCtx, delayNode, fbGainNode, ffGainNode, dryGain, wetGain, outputGain, analyser;
+let noiseNode, fileSource, audioBuffer, pulseSource;
+let isPlaying = false;
+let fftAnimId = null;
+let currentSource = null;
+let combType = 'feedback';
+
+const combCanvas = document.getElementById('combCanvas');
+const cCtx = combCanvas.getContext('2d');
+const fftCanvas = document.getElementById('fftCanvas');
+const fCtx = fftCanvas.getContext('2d');
+
+function getDelay() { return +document.getElementById('delaySlider').value / 1000; }
+function getFeedback() { return +document.getElementById('fbSlider').value; }
+function getMix() { return +document.getElementById('mixSlider').value / 100; }
+
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Delay line
+    delayNode = audioCtx.createDelay(0.1);
+    delayNode.delayTime.value = getDelay();
+
+    // Feedback gain (for IIR comb)
+    fbGainNode = audioCtx.createGain();
+    fbGainNode.gain.value = combType === 'feedback' ? getFeedback() : 0;
+
+    // Feedforward gain (for FIR comb)
+    ffGainNode = audioCtx.createGain();
+    ffGainNode.gain.value = combType === 'feedforward' ? getFeedback() : 0;
+
+    // Dry/wet mix
+    dryGain = audioCtx.createGain();
+    wetGain = audioCtx.createGain();
+    const mix = getMix();
+    dryGain.gain.value = 1 - mix;
+    wetGain.gain.value = mix;
+
+    // Output
+    outputGain = audioCtx.createGain();
+    outputGain.gain.value = document.getElementById('volume').value / 100;
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096;
+
+    // Merger for dry + wet
+    const merger = audioCtx.createGain();
+    merger.gain.value = 1;
+
+    // We'll use a splitter node to route signal
+    // Input → dryGain → merger
+    // Input → delayNode → wetGain → merger
+    // For feedback: delayNode → fbGainNode → delayNode
+    // For feedforward: input → ffGainNode (added to wet path)
+
+    // Store merger for reconnection
+    this._merger = merger;
+    this._inputNode = audioCtx.createGain(); // input hub
+    this._inputNode.gain.value = 1;
+
+    wireGraph();
+
+    merger.connect(outputGain);
+    outputGain.connect(analyser);
+    analyser.connect(audioCtx.destination);
+}
+
+function wireGraph() {
+    const input = this._inputNode;
+    const merger = this._merger;
+
+    // Disconnect everything first
+    try { input.disconnect(); } catch(_) {}
+    try { delayNode.disconnect(); } catch(_) {}
+    try { fbGainNode.disconnect(); } catch(_) {}
+    try { ffGainNode.disconnect(); } catch(_) {}
+    try { dryGain.disconnect(); } catch(_) {}
+    try { wetGain.disconnect(); } catch(_) {}
+
+    // Dry path
+    input.connect(dryGain);
+    dryGain.connect(merger);
+
+    if (combType === 'feedback') {
+        // IIR comb: input → delay → wetGain → merger
+        //                   delay → fbGain → delay (feedback loop)
+        input.connect(delayNode);
+        delayNode.connect(wetGain);
+        wetGain.connect(merger);
+        delayNode.connect(fbGainNode);
+        fbGainNode.connect(delayNode);
+
+        fbGainNode.gain.value = getFeedback();
+        ffGainNode.gain.value = 0;
+    } else {
+        // FIR comb: input → delay → ffGain → merger (wet)
+        //           (no feedback loop)
+        input.connect(delayNode);
+        delayNode.connect(ffGainNode);
+        ffGainNode.connect(wetGain);
+        wetGain.connect(merger);
+
+        fbGainNode.gain.value = 0;
+        ffGainNode.gain.value = getFeedback();
+    }
+}
+
+function connectSource(node) {
+    node.connect(this._inputNode);
+}
+
+// --- Sources ---
+function createNoiseNode() {
+    const bufferSize = audioCtx.sampleRate * 2;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const node = audioCtx.createBufferSource();
+    node.buffer = buffer;
+    node.loop = true;
+    return node;
+}
+
+function createPulseNode() {
+    // Short impulse to hear the comb resonance
+    const len = audioCtx.sampleRate; // 1 second of silence with impulse
+    const buffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    // Very short click
+    for (let i = 0; i < 32; i++) data[i] = 1 - (i / 32);
+    const node = audioCtx.createBufferSource();
+    node.buffer = buffer;
+    node.loop = true;
+    return node;
+}
+
+function stopAll() {
+    if (noiseNode) { try { noiseNode.stop(); } catch(_) {} try { noiseNode.disconnect(); } catch(_) {} noiseNode = null; }
+    if (fileSource) { try { fileSource.stop(); } catch(_) {} try { fileSource.disconnect(); } catch(_) {} fileSource = null; }
+    if (pulseSource) { try { pulseSource.stop(); } catch(_) {} try { pulseSource.disconnect(); } catch(_) {} pulseSource = null; }
+    isPlaying = false;
+    currentSource = null;
+    document.getElementById('noiseBtn').classList.remove('active-src');
+    document.getElementById('pulseBtn').classList.remove('active-src');
+    document.getElementById('stopBtn').style.display = 'none';
+}
+
+function startSource(type) {
+    initAudio();
+    stopAll();
+    let node;
+    if (type === 'noise') {
+        node = createNoiseNode();
+        noiseNode = node;
+        document.getElementById('noiseBtn').classList.add('active-src');
+    } else if (type === 'pulse') {
+        node = createPulseNode();
+        pulseSource = node;
+        document.getElementById('pulseBtn').classList.add('active-src');
+    }
+    connectSource(node);
+    node.start();
+    isPlaying = true;
+    currentSource = type;
+    document.getElementById('stopBtn').style.display = 'block';
+    startFFT();
+}
+
+document.getElementById('noiseBtn').onclick = () => startSource('noise');
+document.getElementById('pulseBtn').onclick = () => startSource('pulse');
+document.getElementById('stopBtn').onclick = stopAll;
+
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    initAudio();
+    stopAll();
+    const arrayBuffer = await file.arrayBuffer();
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    document.getElementById('fileName').textContent = file.name;
+    fileSource = audioCtx.createBufferSource();
+    fileSource.buffer = audioBuffer;
+    fileSource.loop = true;
+    connectSource(fileSource);
+    fileSource.start();
+    isPlaying = true;
+    currentSource = 'file';
+    document.getElementById('stopBtn').style.display = 'block';
+    startFFT();
+});
+
+// --- Type buttons ---
+document.querySelectorAll('.type-buttons button').forEach(btn => {
+    btn.onclick = () => {
+        combType = btn.dataset.type;
+        document.querySelectorAll('.type-buttons button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (audioCtx) wireGraph();
+        // Reconnect active source
+        if (isPlaying) {
+            if (noiseNode) connectSource(noiseNode);
+            if (fileSource) connectSource(fileSource);
+            if (pulseSource) connectSource(pulseSource);
+        }
+        drawCombResponse();
+    };
+});
+
+// --- Controls ---
+document.getElementById('delaySlider').oninput = (e) => {
+    const ms = (+e.target.value);
+    document.getElementById('delayVal').textContent = ms.toFixed(2);
+    if (delayNode) delayNode.delayTime.setTargetAtTime(ms / 1000, audioCtx.currentTime, 0.01);
+    updateStats();
+    drawCombResponse();
+};
+
+document.getElementById('fbSlider').oninput = (e) => {
+    const val = +e.target.value;
+    document.getElementById('fbVal').textContent = val.toFixed(2);
+    if (combType === 'feedback' && fbGainNode) fbGainNode.gain.setTargetAtTime(val, audioCtx.currentTime, 0.01);
+    if (combType === 'feedforward' && ffGainNode) ffGainNode.gain.setTargetAtTime(val, audioCtx.currentTime, 0.01);
+    drawCombResponse();
+};
+
+document.getElementById('mixSlider').oninput = (e) => {
+    const mix = +e.target.value / 100;
+    document.getElementById('mixVal').textContent = e.target.value;
+    if (dryGain) dryGain.gain.setTargetAtTime(1 - mix, audioCtx.currentTime, 0.01);
+    if (wetGain) wetGain.gain.setTargetAtTime(mix, audioCtx.currentTime, 0.01);
+};
+
+document.getElementById('volume').oninput = (e) => {
+    document.getElementById('volVal').textContent = e.target.value;
+    if (outputGain) outputGain.gain.setTargetAtTime(e.target.value / 100, audioCtx.currentTime, 0.02);
+};
+
+function updateStats() {
+    const delayMs = +document.getElementById('delaySlider').value;
+    const f0 = 1000 / delayMs;
+    document.getElementById('fundFreq').textContent = Math.round(f0);
+    document.getElementById('statDelay').textContent = delayMs.toFixed(2);
+    document.getElementById('statF0').textContent = Math.round(f0);
+    document.getElementById('statNote').textContent = freqToNote(f0);
+}
+
+// --- Comb frequency response visualization ---
+function drawCombResponse() {
+    const w = combCanvas.width, h = combCanvas.height;
+    cCtx.clearRect(0, 0, w, h);
+
+    const delayMs = +document.getElementById('delaySlider').value;
+    const delaySec = delayMs / 1000;
+    const g = getFeedback();
+    const sr = audioCtx ? audioCtx.sampleRate : 48000;
+
+    // Grid
+    cCtx.strokeStyle = '#1a1a1a'; cCtx.lineWidth = 1;
+    for (let y = h * 0.25; y < h; y += h * 0.25) {
+        cCtx.beginPath(); cCtx.moveTo(0, y); cCtx.lineTo(w, y); cCtx.stroke();
+    }
+    // 0dB line
+    const zeroY = h * 0.5;
+    cCtx.strokeStyle = '#333'; cCtx.beginPath(); cCtx.moveTo(0, zeroY); cCtx.lineTo(w, zeroY); cCtx.stroke();
+
+    // dB labels
+    cCtx.fillStyle = '#444'; cCtx.font = '9px sans-serif'; cCtx.textAlign = 'right';
+    const dbRange = 30;
+    for (let db = -20; db <= 20; db += 10) {
+        const y = zeroY - (db / dbRange) * (h / 2);
+        if (y > 5 && y < h - 5) cCtx.fillText(db + 'dB', 30, y + 3);
+    }
+
+    // Freq labels (log scale)
+    cCtx.textAlign = 'center';
+    [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].forEach(f => {
+        const x = (Math.log(f / 20) / Math.log(1000)) * w;
+        if (x > 35 && x < w - 10) {
+            cCtx.fillText(f >= 1000 ? (f / 1000) + 'k' : f, x, h - 3);
+            cCtx.strokeStyle = '#1a1a1a'; cCtx.beginPath(); cCtx.moveTo(x, 0); cCtx.lineTo(x, h - 12); cCtx.stroke();
+        }
+    });
+
+    // Compute theoretical comb response
+    const nPoints = w;
+    cCtx.beginPath();
+    cCtx.strokeStyle = '#00e5ff'; cCtx.lineWidth = 2;
+    cCtx.shadowColor = '#00e5ff'; cCtx.shadowBlur = 4;
+
+    for (let i = 0; i < nPoints; i++) {
+        const freq = 20 * Math.pow(1000, i / nPoints);
+        const omega = 2 * Math.PI * freq * delaySec;
+
+        let mag;
+        if (combType === 'feedback') {
+            // H(z) = 1 / (1 - g * z^(-N))
+            // |H(f)| = 1 / sqrt(1 + g² - 2g·cos(ωT))
+            mag = 1 / Math.sqrt(1 + g * g - 2 * g * Math.cos(omega));
+        } else {
+            // H(z) = 1 + g * z^(-N)
+            // |H(f)| = sqrt(1 + g² + 2g·cos(ωT))
+            mag = Math.sqrt(1 + g * g + 2 * g * Math.cos(omega));
+        }
+
+        const db = 20 * Math.log10(mag);
+        const clampedDb = Math.max(-dbRange, Math.min(dbRange, db));
+        const y = zeroY - (clampedDb / dbRange) * (h / 2);
+        i === 0 ? cCtx.moveTo(i, y) : cCtx.lineTo(i, y);
+    }
+    cCtx.stroke();
+    cCtx.shadowBlur = 0;
+
+    // Mark comb teeth frequencies
+    const f0 = 1 / delaySec;
+    cCtx.setLineDash([3, 5]);
+    cCtx.strokeStyle = 'rgba(255,64,129,0.3)'; cCtx.lineWidth = 1;
+    for (let n = 1; n * f0 < 20000 && n < 50; n++) {
+        const f = n * f0;
+        const x = (Math.log(f / 20) / Math.log(1000)) * w;
+        if (x > 0 && x < w) {
+            cCtx.beginPath(); cCtx.moveTo(x, 0); cCtx.lineTo(x, h - 12); cCtx.stroke();
+            if (n <= 8) {
+                cCtx.fillStyle = 'rgba(255,64,129,0.5)'; cCtx.font = '8px sans-serif'; cCtx.textAlign = 'center';
+                cCtx.fillText(n + 'f₀', x, 10);
+            }
+        }
+    }
+    cCtx.setLineDash([]);
+}
+
+// --- FFT ---
+function startFFT() {
+    if (fftAnimId) return;
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+    function drawFFT() {
+        fftAnimId = requestAnimationFrame(drawFFT);
+        if (!isPlaying) { cancelAnimationFrame(fftAnimId); fftAnimId = null; fCtx.clearRect(0, 0, fftCanvas.width, fftCanvas.height); return; }
+        analyser.getByteFrequencyData(data);
+        const w = fftCanvas.width, h = fftCanvas.height;
+        fCtx.clearRect(0, 0, w, h);
+        const nyquist = audioCtx.sampleRate / 2;
+        const nBars = w;
+        for (let i = 0; i < nBars; i++) {
+            const freq = 20 * Math.pow(1000, i / nBars);
+            const bin = Math.round(freq / nyquist * bufLen);
+            if (bin >= bufLen) break;
+            const v = data[bin] / 255;
+            const barH = v * h;
+            const hue = 180 + (i / nBars) * 140;
+            fCtx.fillStyle = 'hsla(' + (hue % 360) + ',80%,55%,0.85)';
+            fCtx.fillRect(i, h - barH, 1.5, barH);
+        }
+        fCtx.fillStyle = '#444'; fCtx.font = '9px sans-serif'; fCtx.textAlign = 'center';
+        [100, 500, 1000, 2000, 5000, 10000].forEach(f => {
+            const xPos = (Math.log(f / 20) / Math.log(1000)) * w;
+            if (xPos > 10 && xPos < w - 10) fCtx.fillText(f >= 1000 ? (f / 1000) + 'k' : f, xPos, 10);
+        });
+    }
+    drawFFT();
+}
+
+// --- Init ---
+updateStats();
+drawCombResponse();
+</script>
+</body>
+</html>
