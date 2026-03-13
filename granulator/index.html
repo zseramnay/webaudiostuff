@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Granulateur</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 30px 10px; margin: 0; }
+        .synth-card {
+            background: #1e1e1e;
+            display: inline-block;
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid #333;
+            max-width: 620px;
+            width: calc(100% - 20px);
+            box-sizing: border-box;
+        }
+        h1 { margin-top: 0; }
+        input[type="range"] { width: 90%; max-width: 320px; display: block; margin: 8px auto; }
+        button { background: #00e5ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; color: #121212; }
+        label { color: #bbb; font-size: 0.9rem; }
+        canvas { display: block; margin: 10px auto; border-radius: 8px; max-width: 100%; }
+        #waveCanvas, #fftCanvas { background: #0a0a0a; border: 1px solid #333; }
+        .section-label { color: #555; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; margin: 15px 0 5px; }
+        .controls-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+        .controls-row button { padding: 8px 16px; font-size: 0.85rem; }
+        .controls-row button.active { background: #ff4081; color: white; }
+        .file-label { background: #00e5ff; color: #121212; border-radius: 5px; padding: 8px 16px; cursor: pointer; font-weight: bold; font-size: 0.85rem; display: inline-block; }
+        .info-box { background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px; margin: 10px 0; text-align: left; font-size: 0.8rem; color: #888; line-height: 1.5; }
+        .info-box strong { color: #00e5ff; }
+        .stat { display: inline-block; background: #0a0a0a; border: 1px solid #333; border-radius: 6px; padding: 6px 12px; margin: 3px; font-size: 0.78rem; }
+        .stat strong { color: #00e5ff; }
+        nav { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; }
+        nav a { background: #333; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
+        nav a:hover { background: #555; color: #fff; }
+        nav a.active { background: #00e5ff; color: #121212; }
+        #fileName { font-size: 0.75rem; color: #666; margin: 4px 0; }
+        hr { border: 0.5px solid #333; margin: 15px 0; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="../index.html">Index</a>
+        <a href="../fm-synth/index.html">FM</a>
+        <a href="../amp-mod/index.html">AM</a>
+        <a href="../waveforms/index.html">Waveforms</a>
+        <a href="../frequency-shift/index.html">Freq Shift</a>
+        <a href="../filter-explorer/index.html">Filters</a>
+        <a href="../comb-filter/index.html">Comb</a>
+        <a href="../resonant-filter/index.html">Résonant</a>
+        <a href="../granulator/index.html" class="active">Granulateur</a>
+    </nav>
+
+    <div class="synth-card">
+        <h1>Granulateur</h1>
+
+        <div class="info-box">
+            La <strong>synthèse granulaire</strong> découpe un son en micro-fragments (grains) de quelques millisecondes.
+            En contrôlant la <strong>taille</strong>, la <strong>densité</strong>, la <strong>position</strong> et la <strong>hauteur</strong>,
+            on peut aller d'un time-stretch doux à des textures nuageuses et expérimentales.
+        </div>
+
+        <div class="controls-row">
+            <label class="file-label">
+                Charger un fichier
+                <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+            </label>
+            <button id="playBtn" disabled>START</button>
+            <button id="stopBtn" style="background: #ff4081; color: white;" disabled>STOP</button>
+        </div>
+        <div id="fileName">Aucun fichier</div>
+
+        <hr>
+
+        <label>Taille du grain: <span id="grainSizeVal">120</span> ms</label>
+        <input type="range" id="grainSize" min="10" max="400" value="120">
+
+        <label>Densité: <span id="densityVal">18</span> grains/s</label>
+        <input type="range" id="density" min="1" max="60" value="18">
+
+        <label>Position: <span id="positionVal">50</span>%</label>
+        <input type="range" id="position" min="0" max="100" value="50">
+
+        <label>Spray (dispersion): <span id="sprayVal">20</span>%</label>
+        <input type="range" id="spray" min="0" max="100" value="20">
+
+        <label>Pitch: <span id="pitchVal">0.0</span> st</label>
+        <input type="range" id="pitch" min="-24" max="24" value="0" step="0.1">
+
+        <label>Random Pitch: <span id="randPitchVal">0.0</span> st</label>
+        <input type="range" id="randPitch" min="0" max="12" value="0" step="0.1">
+
+        <label>Volume: <span id="volVal">70</span>%</label>
+        <input type="range" id="volume" min="0" max="100" value="70">
+
+        <div style="margin: 6px 0;">
+            <span class="stat">Grain: <strong><span id="sGrain">120</span>ms</strong></span>
+            <span class="stat">Rate: <strong><span id="sRate">1.00</span>x</strong></span>
+            <span class="stat">Density: <strong><span id="sDensity">18</span>/s</strong></span>
+        </div>
+
+        <div class="section-label">Waveform (fichier)</div>
+        <canvas id="waveCanvas" width="560" height="120"></canvas>
+
+        <div class="section-label">FFT Spectrum (sortie granulaire)</div>
+        <canvas id="fftCanvas" width="560" height="130"></canvas>
+    </div>
+
+<script>
+let audioCtx;
+let audioBuffer = null;
+let isRunning = false;
+let grainTimer = null;
+let analyser, outputGain;
+let fftAnimId = null;
+
+const fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName');
+const playBtn = document.getElementById('playBtn');
+const stopBtn = document.getElementById('stopBtn');
+
+const grainSize = document.getElementById('grainSize');
+const density = document.getElementById('density');
+const position = document.getElementById('position');
+const spray = document.getElementById('spray');
+const pitch = document.getElementById('pitch');
+const randPitch = document.getElementById('randPitch');
+const volume = document.getElementById('volume');
+
+const grainSizeVal = document.getElementById('grainSizeVal');
+const densityVal = document.getElementById('densityVal');
+const positionVal = document.getElementById('positionVal');
+const sprayVal = document.getElementById('sprayVal');
+const pitchVal = document.getElementById('pitchVal');
+const randPitchVal = document.getElementById('randPitchVal');
+const volVal = document.getElementById('volVal');
+
+const sGrain = document.getElementById('sGrain');
+const sRate = document.getElementById('sRate');
+const sDensity = document.getElementById('sDensity');
+
+const waveCanvas = document.getElementById('waveCanvas');
+const wCtx = waveCanvas.getContext('2d');
+const fftCanvas = document.getElementById('fftCanvas');
+const fCtx = fftCanvas.getContext('2d');
+
+function updateLabels() {
+    grainSizeVal.textContent = grainSize.value;
+    densityVal.textContent = density.value;
+    positionVal.textContent = position.value;
+    sprayVal.textContent = spray.value;
+    pitchVal.textContent = (+pitch.value).toFixed(1);
+    randPitchVal.textContent = (+randPitch.value).toFixed(1);
+    volVal.textContent = volume.value;
+
+    sGrain.textContent = grainSize.value;
+    sDensity.textContent = density.value;
+    const rate = Math.pow(2, (+pitch.value) / 12);
+    sRate.textContent = rate.toFixed(2);
+}
+
+async function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    outputGain = audioCtx.createGain();
+    outputGain.gain.value = volume.value / 100;
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096;
+    outputGain.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    startFFT();
+}
+
+function drawWaveform() {
+    const w = waveCanvas.width;
+    const h = waveCanvas.height;
+    wCtx.clearRect(0, 0, w, h);
+    wCtx.fillStyle = '#0a0a0a';
+    wCtx.fillRect(0, 0, w, h);
+
+    if (!audioBuffer) return;
+
+    const data = audioBuffer.getChannelData(0);
+    const step = Math.floor(data.length / w);
+
+    wCtx.beginPath();
+    wCtx.strokeStyle = '#00e5ff';
+    wCtx.lineWidth = 1;
+    for (let i = 0; i < w; i++) {
+        const idx = i * step;
+        const v = data[idx] || 0;
+        const y = h * 0.5 - v * (h * 0.45);
+        if (i === 0) wCtx.moveTo(i, y);
+        else wCtx.lineTo(i, y);
+    }
+    wCtx.stroke();
+
+    const posX = (position.value / 100) * w;
+    const sprayW = (spray.value / 100) * w * 0.5;
+
+    wCtx.fillStyle = 'rgba(255,64,129,0.12)';
+    wCtx.fillRect(Math.max(0, posX - sprayW), 0, Math.min(w, sprayW * 2), h);
+
+    wCtx.strokeStyle = 'rgba(255,64,129,0.8)';
+    wCtx.lineWidth = 2;
+    wCtx.beginPath();
+    wCtx.moveTo(posX, 0);
+    wCtx.lineTo(posX, h);
+    wCtx.stroke();
+}
+
+function spawnGrain() {
+    if (!audioBuffer || !audioCtx) return;
+
+    const now = audioCtx.currentTime;
+    const grainDur = +grainSize.value / 1000;
+
+    const center = (+position.value / 100) * audioBuffer.duration;
+    const spraySec = (+spray.value / 100) * audioBuffer.duration * 0.5;
+    const randomOffset = (Math.random() * 2 - 1) * spraySec;
+    let offset = center + randomOffset;
+
+    offset = Math.max(0, Math.min(audioBuffer.duration - 0.001, offset));
+
+    const baseSemitones = +pitch.value;
+    const randSemitones = +randPitch.value;
+    const semitoneJitter = (Math.random() * 2 - 1) * randSemitones;
+    const totalSemitones = baseSemitones + semitoneJitter;
+    const rate = Math.pow(2, totalSemitones / 12);
+
+    const source = audioCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.playbackRate.value = rate;
+
+    const env = audioCtx.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(1, now + grainDur * 0.35);
+    env.gain.linearRampToValueAtTime(0, now + grainDur);
+
+    source.connect(env);
+    env.connect(outputGain);
+
+    source.start(now, offset, Math.max(0.001, grainDur));
+    source.stop(now + grainDur + 0.02);
+}
+
+function startGranulator() {
+    if (!audioBuffer || isRunning) return;
+    isRunning = true;
+    playBtn.classList.add('active');
+    stopBtn.classList.add('active');
+
+    const tick = () => {
+        if (!isRunning) return;
+        spawnGrain();
+        const interval = 1000 / Math.max(1, +density.value);
+        grainTimer = setTimeout(tick, interval);
+    };
+
+    tick();
+}
+
+function stopGranulator() {
+    isRunning = false;
+    playBtn.classList.remove('active');
+    stopBtn.classList.remove('active');
+    if (grainTimer) {
+        clearTimeout(grainTimer);
+        grainTimer = null;
+    }
+}
+
+function startFFT() {
+    if (fftAnimId) return;
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+
+    function draw() {
+        fftAnimId = requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(data);
+        const w = fftCanvas.width;
+        const h = fftCanvas.height;
+        fCtx.clearRect(0, 0, w, h);
+
+        const nyquist = audioCtx.sampleRate / 2;
+        const nBars = w;
+        for (let i = 0; i < nBars; i++) {
+            const freq = 20 * Math.pow(1000, i / nBars);
+            const bin = Math.round((freq / nyquist) * bufLen);
+            if (bin >= bufLen) break;
+            const v = data[bin] / 255;
+            const barH = v * h;
+            const hue = 180 + (i / nBars) * 140;
+            fCtx.fillStyle = 'hsla(' + (hue % 360) + ',80%,55%,0.85)';
+            fCtx.fillRect(i, h - barH, 1.5, barH);
+        }
+
+        fCtx.fillStyle = '#444';
+        fCtx.font = '9px sans-serif';
+        fCtx.textAlign = 'center';
+        [100, 500, 1000, 2000, 5000, 10000].forEach((f) => {
+            const xPos = (Math.log(f / 20) / Math.log(1000)) * w;
+            if (xPos > 10 && xPos < w - 10) fCtx.fillText(f >= 1000 ? (f / 1000) + 'k' : f, xPos, 10);
+        });
+    }
+
+    draw();
+}
+
+fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    await initAudio();
+
+    try {
+        const arr = await file.arrayBuffer();
+        audioBuffer = await audioCtx.decodeAudioData(arr);
+        fileName.textContent = file.name + ' (' + audioBuffer.duration.toFixed(2) + 's)';
+        playBtn.disabled = false;
+        stopBtn.disabled = false;
+        drawWaveform();
+    } catch (err) {
+        console.error(err);
+        fileName.textContent = 'Erreur de lecture du fichier';
+    }
+});
+
+playBtn.onclick = async () => {
+    if (!audioBuffer) return;
+    await initAudio();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    startGranulator();
+};
+
+stopBtn.onclick = () => stopGranulator();
+
+[grainSize, density, position, spray, pitch, randPitch].forEach((el) => {
+    el.addEventListener('input', () => {
+        updateLabels();
+        drawWaveform();
+    });
+});
+
+volume.addEventListener('input', () => {
+    updateLabels();
+    if (outputGain && audioCtx) {
+        outputGain.gain.setTargetAtTime(volume.value / 100, audioCtx.currentTime, 0.02);
+    }
+});
+
+updateLabels();
+drawWaveform();
+</script>
+</body>
+</html>
