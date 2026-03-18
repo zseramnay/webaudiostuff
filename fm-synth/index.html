@@ -18,6 +18,12 @@
         nav a.active { background: #00e5ff; color: #121212; }
         .info-box { background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 10px; margin: 10px 0; text-align: left; font-size: 0.8rem; color: #888; line-height: 1.5; }
         .info-box strong { color: #00e5ff; }
+        .dsp-academic { margin-top: 14px; background: #0a0f16; border: 1px solid #24435a; border-radius: 6px; padding: 10px; color: #8fd8ff; text-align: left; }
+        .dsp-academic svg { width: 100%; height: auto; background: #0a0f16; border: 1px solid #24435a; display: block; stroke-linecap: round; stroke-linejoin: round; }
+        .dsp-academic svg [stroke] { stroke: #59c7ff; }
+        .dsp-academic svg marker path { fill: #59c7ff; stroke: none; }
+        .dsp-academic svg text { fill: #a8e3ff; font-family: "Times New Roman", serif; font-size: 16px !important; }
+        .dsp-academic svg text.math { font-style: italic; }
     </style>
 </head>
 <body>
@@ -31,6 +37,7 @@
         <a href="../filter-explorer/index.html">Filters</a>
         <a href="../comb-filter/index.html">Comb</a>
         <a href="../resonant-filter/index.html">Résonant</a>
+        <a href="../karplus-strong/index.html">Karplus</a>
         <a href="../granulator/index.html">Granulateur</a>
     </nav>
 
@@ -62,6 +69,38 @@
 
         <div class="section-label">Spectre FFT</div>
         <canvas id="fftCanvas" width="400" height="120"></canvas>
+
+        <div class="dsp-academic">
+            <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg" aria-label="FM DSP graph">
+                <defs><marker id="arrFM" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#222"/></marker></defs>
+                <circle cx="110" cy="70" r="30" fill="none" stroke="#222" stroke-width="2"/>
+                <path d="M90 70 L95 64.3 L100 62 L105 64.3 L110 70 L115 75.7 L120 78 L125 75.7 L130 70" fill="none" stroke="#222" stroke-width="1.7"/>
+                <text x="110" y="112" font-size="11" text-anchor="middle">OSC</text>
+                <text x="110" y="126" font-size="11" text-anchor="middle">MOD</text>
+                <polygon points="190,48 190,92 252,70" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="216" y="74" text-anchor="middle" class="math">k_m</text>
+                <circle cx="318" cy="70" r="22" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="318" y="75" font-size="16" text-anchor="middle">+</text>
+                <circle cx="430" cy="70" r="30" fill="none" stroke="#222" stroke-width="2"/>
+                <path d="M410 70 L415 64.3 L420 62 L425 64.3 L430 70 L435 75.7 L440 78 L445 75.7 L450 70" fill="none" stroke="#222" stroke-width="1.7"/>
+                <text x="430" y="112" font-size="11" text-anchor="middle">OSC</text>
+                <text x="430" y="126" font-size="11" text-anchor="middle">CAR</text>
+                <polygon points="510,48 510,92 570,70" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="535" y="74" text-anchor="middle" class="math">g</text>
+                <rect x="600" y="44" width="98" height="52" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="649" y="74" text-anchor="middle" class="math">H(z)</text>
+                <line x1="140" y1="70" x2="190" y2="70" stroke="#222" stroke-width="2" marker-end="url(#arrFM)"/>
+                <line x1="252" y1="70" x2="296" y2="70" stroke="#222" stroke-width="2" marker-end="url(#arrFM)"/>
+                <line x1="340" y1="70" x2="400" y2="70" stroke="#222" stroke-width="2" marker-end="url(#arrFM)"/>
+                <line x1="460" y1="70" x2="510" y2="70" stroke="#222" stroke-width="2" marker-end="url(#arrFM)"/>
+                <line x1="570" y1="70" x2="600" y2="70" stroke="#222" stroke-width="2" marker-end="url(#arrFM)"/>
+                <line x1="698" y1="70" x2="742" y2="70" stroke="#222" stroke-width="2" marker-end="url(#arrFM)"/>
+                <line x1="318" y1="20" x2="318" y2="48" stroke="#222" stroke-width="2" marker-end="url(#arrFM)"/>
+                <text x="318" y="14" text-anchor="middle" class="math">f_c</text>
+                <line x1="110" y1="20" x2="110" y2="40" stroke="#222" stroke-width="2" marker-end="url(#arrFM)"/>
+                <text x="110" y="14" text-anchor="middle" class="math">f_m</text>
+            </svg>
+        </div>
     </div>
 
 <script>

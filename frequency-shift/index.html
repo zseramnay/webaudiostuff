@@ -30,6 +30,12 @@
         .src-buttons button { padding: 8px 16px; font-size: 0.85rem; }
         hr { border: 0.5px solid #333; margin: 15px 0; }
         #fileName { font-size: 0.75rem; color: #666; margin: 4px 0; }
+        .dsp-academic { margin-top: 14px; background: #0a0f16; border: 1px solid #24435a; border-radius: 6px; padding: 10px; color: #8fd8ff; text-align: left; }
+        .dsp-academic svg { width: 100%; height: auto; background: #0a0f16; border: 1px solid #24435a; display: block; stroke-linecap: round; stroke-linejoin: round; }
+        .dsp-academic svg [stroke] { stroke: #59c7ff; }
+        .dsp-academic svg marker path { fill: #59c7ff; stroke: none; }
+        .dsp-academic svg text { fill: #a8e3ff; font-family: "Times New Roman", serif; font-size: 16px !important; }
+        .dsp-academic svg text.math { font-style: italic; }
     </style>
 </head>
 <body>
@@ -43,6 +49,7 @@
         <a href="../filter-explorer/index.html">Filters</a>
         <a href="../comb-filter/index.html">Comb</a>
         <a href="../resonant-filter/index.html">Résonant</a>
+        <a href="../karplus-strong/index.html">Karplus</a>
         <a href="../granulator/index.html">Granulateur</a>
     </nav>
 
@@ -87,6 +94,35 @@
         <canvas id="fftCanvas" width="400" height="120"></canvas>
 
         <p style="font-size: 0.8rem; color: #555; margin-top: 15px;">🎧 Utiliser un casque pour éviter le feedback !</p>
+
+        <div class="dsp-academic">
+            <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg" aria-label="Ring modulation and frequency shift graph">
+                <defs><marker id="arrFS" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#222"/></marker></defs>
+                <rect x="20" y="88" width="120" height="52" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="80" y="118" text-anchor="middle" class="math">x[n]</text>
+                <circle cx="240" cy="58" r="28" fill="none" stroke="#222" stroke-width="2"/>
+                <path d="M222 58 L226.5 52.3 L231 50 L235.5 52.3 L240 58 L244.5 63.7 L249 66 L253.5 63.7 L258 58" fill="none" stroke="#222" stroke-width="1.6"/>
+                <text x="240" y="96" font-size="11" text-anchor="middle">OSC</text>
+                <circle cx="240" cy="128" r="22" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="240" y="133" font-size="18" text-anchor="middle">×</text>
+                <rect x="330" y="66" width="100" height="52" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="380" y="96" text-anchor="middle" class="math">H(z)</text>
+                <rect x="330" y="138" width="100" height="52" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="380" y="168" text-anchor="middle" class="math">H̃(z)</text>
+                <circle cx="510" cy="128" r="22" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="510" y="133" font-size="16" text-anchor="middle">+</text>
+                <polygon points="560,106 560,150 622,128" fill="none" stroke="#222" stroke-width="2"/>
+                <text x="586" y="132" text-anchor="middle" class="math">g</text>
+                <line x1="140" y1="114" x2="218" y2="126" stroke="#222" stroke-width="2" marker-end="url(#arrFS)"/>
+                <line x1="268" y1="58" x2="268" y2="108" stroke="#222" stroke-width="2" marker-end="url(#arrFS)"/>
+                <line x1="262" y1="122" x2="330" y2="92" stroke="#222" stroke-width="2" marker-end="url(#arrFS)"/>
+                <line x1="262" y1="134" x2="330" y2="164" stroke="#222" stroke-width="2" marker-end="url(#arrFS)"/>
+                <line x1="430" y1="92" x2="490" y2="120" stroke="#222" stroke-width="2" marker-end="url(#arrFS)"/>
+                <line x1="430" y1="164" x2="490" y2="136" stroke="#222" stroke-width="2" marker-end="url(#arrFS)"/>
+                <line x1="532" y1="128" x2="560" y2="128" stroke="#222" stroke-width="2" marker-end="url(#arrFS)"/>
+                <line x1="622" y1="128" x2="732" y2="128" stroke="#222" stroke-width="2" marker-end="url(#arrFS)"/>
+            </svg>
+        </div>
     </div>
 
 <script>
