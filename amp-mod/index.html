@@ -10,6 +10,9 @@
         .value-input { width: 90px; margin: 6px auto 12px; display: block; text-align: center; background: #151515; color: #e6f8ff; border: 1px solid #2f4e63; border-radius: 6px; padding: 6px; }
         button { background: #00e5ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         label { color: #bbb; font-size: 0.9rem; }
+        .param-label { display: block; }
+        .param-name { color: #bbb; }
+        .param-value { display: inline-block; min-width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
         canvas { display: block; margin: 10px auto; border-radius: 8px; max-width: 100%; }
         #fftCanvas { background: #0a0a0a; border: 1px solid #333; }
         .section-label { color: #555; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; margin: 15px 0 5px; }
@@ -72,19 +75,19 @@
         <button id="power">ACTIVER LE SON</button>
         <hr style="margin: 20px 0; border: 0.5px solid #333;">
 
-        <label>Fréquence Porteuse (Carrier): <span id="carVal">440</span> Hz</label>
+        <label class="param-label"><span class="param-name">Fréquence Porteuse (Carrier): </span><span id="carVal" class="param-value">440</span> Hz</label>
         <input type="range" id="carrierFreq" min="20" max="1000" step="0.5" value="440">
         <input type="number" id="carrierFreqNum" class="value-input" min="20" max="1000" step="0.5" value="440" aria-label="Fréquence porteuse en Hz">
 
-        <label>Fréquence Modulante: <span id="modVal">8</span> Hz</label>
+        <label class="param-label"><span class="param-name">Fréquence Modulante: </span><span id="modVal" class="param-value">8</span> Hz</label>
         <input type="range" id="modFreq" min="0" max="100" value="8" step="0.5">
         <input type="number" id="modFreqNum" class="value-input" min="0" max="100" step="0.5" value="8" aria-label="Fréquence modulante en Hz">
 
-        <label>Profondeur de Modulation: <span id="depthVal">50</span>%</label>
+        <label class="param-label"><span class="param-name">Profondeur de Modulation: </span><span id="depthVal" class="param-value">50</span>%</label>
         <input type="range" id="modDepth" min="0" max="100" step="0.5" value="50">
         <input type="number" id="modDepthNum" class="value-input" min="0" max="100" step="0.5" value="50" aria-label="Profondeur de modulation en pourcentage">
 
-        <label>Volume: <span id="volVal">40</span>%</label>
+        <label class="param-label"><span class="param-name">Volume: </span><span id="volVal" class="param-value">40</span>%</label>
         <input type="range" id="volume" min="0" max="100" value="40">
         <input type="number" id="volumeNum" class="value-input" min="0" max="100" step="1" value="40" aria-label="Volume en pourcentage">
 
@@ -208,7 +211,10 @@ function setupControls() {
 
             slider.value = value;
             numberInput.value = value;
-            valueDisplay.textContent = value;
+            const displayValue = String(value);
+            if (valueDisplay.textContent !== displayValue) {
+                valueDisplay.textContent = displayValue;
+            }
             setter(value);
         };
 
