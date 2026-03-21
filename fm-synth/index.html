@@ -6,7 +6,8 @@
     <style>
         body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 30px 10px; margin: 0; }
         .synth-card { background: #1e1e1e; display: inline-block; padding: 30px; border-radius: 15px; border: 1px solid #333; max-width: 500px; width: calc(100% - 20px); box-sizing: border-box; }
-        input { width: 250px; display: block; margin: 10px auto; }
+        input[type="range"] { width: 250px; display: block; margin: 10px auto; }
+        .value-input { width: 90px; margin: 6px auto 12px; display: block; text-align: center; background: #151515; color: #e6f8ff; border: 1px solid #2f4e63; border-radius: 6px; padding: 6px; }
         button { background: #00e5ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         label { color: #bbb; font-size: 0.9rem; }
         canvas { display: block; margin: 10px auto; border-radius: 8px; max-width: 100%; }
@@ -56,16 +57,20 @@
         <hr style="margin: 20px 0; border: 0.5px solid #333;">
 
         <label>Fréquence Porteuse (Carrier): <span id="carVal">440</span> Hz</label>
-        <input type="range" id="carrierFreq" min="20" max="1000" value="440">
+        <input type="range" id="carrierFreq" min="20" max="1000" step="0.5" value="440">
+        <input type="number" id="carrierFreqNum" class="value-input" min="20" max="1000" step="0.5" value="440" aria-label="Fréquence porteuse en Hz">
 
-        <label>Fréquence Modulatrice: <span id="modVal">200</span> Hz</label>
-        <input type="range" id="modFreq" min="1" max="500" value="200">
+        <label>Fréquence Modulante: <span id="modVal">200</span> Hz</label>
+        <input type="range" id="modFreq" min="0" max="500" step="0.5" value="200">
+        <input type="number" id="modFreqNum" class="value-input" min="0" max="500" step="0.5" value="200" aria-label="Fréquence modulante en Hz">
 
         <label>Index de Modulation (Gain): <span id="depthVal">300</span></label>
-        <input type="range" id="modDepth" min="0" max="5000" value="300">
+        <input type="range" id="modDepth" min="0" max="5000" step="0.5" value="300">
+        <input type="number" id="modDepthNum" class="value-input" min="0" max="5000" step="0.5" value="300" aria-label="Index de modulation">
 
         <label>Volume: <span id="volVal">30</span>%</label>
         <input type="range" id="volume" min="0" max="100" value="30">
+        <input type="number" id="volumeNum" class="value-input" min="0" max="100" step="1" value="30" aria-label="Volume en pourcentage">
 
         <div class="section-label">Spectre FFT</div>
         <canvas id="fftCanvas" width="400" height="120"></canvas>
@@ -157,23 +162,46 @@ powerBtn.onclick = () => {
 };
 
 function setupControls() {
-    // Liaison des sliders aux paramètres Web Audio
-    document.getElementById('carrierFreq').oninput = (e) => {
-        carrier.frequency.setTargetAtTime(e.target.value, ctx.currentTime, 0.05);
-        document.getElementById('carVal').textContent = e.target.value;
-    };
-    document.getElementById('modFreq').oninput = (e) => {
-        modulator.frequency.setTargetAtTime(e.target.value, ctx.currentTime, 0.05);
-        document.getElementById('modVal').textContent = e.target.value;
-    };
-    document.getElementById('modDepth').oninput = (e) => {
-        modGain.gain.setTargetAtTime(e.target.value, ctx.currentTime, 0.05);
-        document.getElementById('depthVal').textContent = e.target.value;
-    };
-    document.getElementById('volume').oninput = (e) => {
-        output.gain.setTargetAtTime(e.target.value / 100, ctx.currentTime, 0.05);
-        document.getElementById('volVal').textContent = e.target.value;
-    };
+    function bindSliderAndNumber(sliderId, numberId, valueId, setter) {
+        const slider = document.getElementById(sliderId);
+        const numberInput = document.getElementById(numberId);
+        const valueDisplay = document.getElementById(valueId);
+
+        const min = Number(slider.min);
+        const max = Number(slider.max);
+
+        const commitValue = (rawValue) => {
+            let value = Number(rawValue);
+            if (!Number.isFinite(value)) return;
+            value = Math.min(max, Math.max(min, value));
+
+            slider.value = value;
+            numberInput.value = value;
+            valueDisplay.textContent = value;
+            setter(value);
+        };
+
+        slider.oninput = (e) => commitValue(e.target.value);
+        numberInput.oninput = (e) => commitValue(e.target.value);
+        numberInput.onchange = (e) => commitValue(e.target.value);
+    }
+
+    // Liaison des sliders et entrées clavier aux paramètres Web Audio
+    bindSliderAndNumber('carrierFreq', 'carrierFreqNum', 'carVal', (value) => {
+        carrier.frequency.setTargetAtTime(value, ctx.currentTime, 0.05);
+    });
+
+    bindSliderAndNumber('modFreq', 'modFreqNum', 'modVal', (value) => {
+        modulator.frequency.setTargetAtTime(value, ctx.currentTime, 0.05);
+    });
+
+    bindSliderAndNumber('modDepth', 'modDepthNum', 'depthVal', (value) => {
+        modGain.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+    });
+
+    bindSliderAndNumber('volume', 'volumeNum', 'volVal', (value) => {
+        output.gain.setTargetAtTime(value / 100, ctx.currentTime, 0.05);
+    });
 }
 
 function startFFT() {
