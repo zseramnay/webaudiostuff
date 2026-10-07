@@ -43,6 +43,20 @@
         .dsp-academic svg marker path { fill: #59c7ff; stroke: none; }
         .dsp-academic svg text { fill: #a8e3ff; font-family: "Times New Roman", serif; font-size: 16px !important; }
         .dsp-academic svg text.math { font-style: italic; }
+        /* Mise en page compacte : deux colonnes sur écran large */
+        body { padding: 12px 10px; }
+        nav { margin-bottom: 10px; }
+        .synth-card { padding: 18px 24px; }
+        .synth-card > h1 { margin: 0 0 10px; font-size: 1.6rem; }
+        hr { border: 0.5px solid #333; margin: 12px 0; }
+        .section-label { margin: 10px 0 4px; }
+        .dsp-academic { margin-top: 10px; }
+        .layout { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 28px; align-items: start; }
+        .layout > .col > :first-child { margin-top: 0; }
+        @media (min-width: 980px) {
+            .synth-card { max-width: 1180px; width: calc(100% - 20px); }
+            .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        }
     </style>
 </head>
 <body>
@@ -62,6 +76,8 @@
 
     <div class="synth-card">
         <h1>Granulateur</h1>
+        <div class="layout">
+        <div class="col">
 
         <div class="info-box">
             La <strong>synthèse granulaire</strong> découpe un son en micro-fragments (grains) de quelques millisecondes.
@@ -108,6 +124,8 @@
             <span class="stat">Density: <strong><span id="sDensity">18</span>/s</strong></span>
         </div>
 
+        </div>
+        <div class="col">
         <div class="section-label">Waveform (fichier)</div>
         <canvas id="waveCanvas" width="560" height="120"></canvas>
 
@@ -115,7 +133,7 @@
         <canvas id="fftCanvas" width="560" height="130"></canvas>
 
         <div class="dsp-academic">
-            <svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg" aria-label="Granulator DSP graph">
+            <svg viewBox="0 76 760 80" xmlns="http://www.w3.org/2000/svg" aria-label="Granulator DSP graph">
                 <defs><marker id="arrGR" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#222"/></marker></defs>
                 <rect x="20" y="90" width="120" height="52" fill="none" stroke="#222" stroke-width="2"/>
                 <text x="80" y="120" font-size="12" text-anchor="middle">BUFFER</text>
@@ -135,6 +153,8 @@
                 <line x1="512" y1="116" x2="540" y2="116" stroke="#222" stroke-width="2" marker-end="url(#arrGR)"/>
                 <line x1="602" y1="116" x2="640" y2="116" stroke="#222" stroke-width="2" marker-end="url(#arrGR)"/>
             </svg>
+        </div>
+        </div>
         </div>
     </div>
 

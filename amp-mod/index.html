@@ -6,8 +6,8 @@
     <style>
         body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 30px 10px; margin: 0; }
         .synth-card { background: #1e1e1e; display: inline-block; padding: 30px; border-radius: 15px; border: 1px solid #333; max-width: 500px; width: calc(100% - 20px); box-sizing: border-box; }
-        input[type="range"] { width: 250px; display: block; margin: 10px auto; }
-        .value-input { width: 90px; margin: 6px auto 12px; display: block; text-align: center; background: #151515; color: #e6f8ff; border: 1px solid #2f4e63; border-radius: 6px; padding: 6px; }
+        input[type="range"] { width: 250px; display: inline-block; vertical-align: middle; margin: 6px 0; }
+        .value-input { width: 90px; margin: 6px 0 8px 10px; display: inline-block; vertical-align: middle; text-align: center; background: #151515; color: #e6f8ff; border: 1px solid #2f4e63; border-radius: 6px; padding: 6px; }
         button { background: #00e5ff; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         label { color: #bbb; font-size: 0.9rem; }
         .param-label { display: block; }
@@ -44,6 +44,20 @@
         .dsp-academic svg marker path { fill: #59c7ff; stroke: none; }
         .dsp-academic svg text { fill: #a8e3ff; font-family: "Times New Roman", serif; font-size: 16px !important; }
         .dsp-academic svg text.math { font-style: italic; }
+        /* Mise en page compacte : deux colonnes sur écran large */
+        body { padding: 12px 10px; }
+        nav { margin-bottom: 10px; }
+        .synth-card { padding: 18px 24px; }
+        .synth-card > h1 { margin: 0 0 10px; font-size: 1.6rem; }
+        hr { border: 0.5px solid #333; margin: 12px 0; }
+        .section-label { margin: 10px 0 4px; }
+        .dsp-academic { margin-top: 10px; }
+        .layout { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 28px; align-items: start; }
+        .layout > .col > :first-child { margin-top: 0; }
+        @media (min-width: 980px) {
+            .synth-card { max-width: 1180px; width: calc(100% - 20px); }
+            .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        }
     </style>
 </head>
 <body>
@@ -63,6 +77,8 @@
 
     <div class="synth-card">
         <h1>Modulation d'Amplitude</h1>
+        <div class="layout">
+        <div class="col">
 
         <div class="info-box">
             La <strong>modulation d'amplitude</strong> (AM) fait varier le volume d'un signal <strong>porteur</strong> (carrier) au rythme d'un signal <strong>modulateur</strong>.
@@ -73,7 +89,7 @@
         </div>
 
         <button id="power">ACTIVER LE SON</button>
-        <hr style="margin: 20px 0; border: 0.5px solid #333;">
+        <hr>
 
         <label class="param-label"><span class="param-name">Fréquence Porteuse (Carrier): </span><span id="carVal" class="param-value">440</span> Hz</label>
         <input type="range" id="carrierFreq" min="20" max="1000" step="0.5" value="440">
@@ -91,6 +107,8 @@
         <input type="range" id="volume" min="0" max="100" value="40">
         <input type="number" id="volumeNum" class="value-input" min="0" max="100" step="1" value="40" aria-label="Volume en pourcentage">
 
+        </div>
+        <div class="col">
         <div class="section-label">Spectre FFT</div>
         <canvas id="fftCanvas" width="400" height="120"></canvas>
 
@@ -129,6 +147,8 @@
                 <line x1="318" y1="18" x2="318" y2="40" stroke="#222" stroke-width="2" marker-end="url(#arrAM)"/>
                 <text x="318" y="13" font-size="10" text-anchor="middle">1</text>
             </svg>
+        </div>
+        </div>
         </div>
     </div>
 

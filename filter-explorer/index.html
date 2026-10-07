@@ -49,6 +49,20 @@
         .dsp-academic svg marker path { fill: #59c7ff; stroke: none; }
         .dsp-academic svg text { fill: #a8e3ff; font-family: "Times New Roman", serif; font-size: 16px !important; }
         .dsp-academic svg text.math { font-style: italic; }
+        /* Mise en page compacte : deux colonnes sur écran large */
+        body { padding: 12px 10px; }
+        nav { margin-bottom: 10px; }
+        .synth-card { padding: 18px 24px; }
+        .synth-card > h1 { margin: 0 0 10px; font-size: 1.6rem; }
+        hr { border: 0.5px solid #333; margin: 12px 0; }
+        .section-label { margin: 10px 0 4px; }
+        .dsp-academic { margin-top: 10px; }
+        .layout { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 28px; align-items: start; }
+        .layout > .col > :first-child { margin-top: 0; }
+        @media (min-width: 980px) {
+            .synth-card { max-width: 1180px; width: calc(100% - 20px); }
+            .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        }
     </style>
 </head>
 <body>
@@ -68,6 +82,8 @@
 
     <div class="synth-card">
         <h1>Filter Explorer</h1>
+        <div class="layout">
+        <div class="col">
 
         <div class="section-label">Source</div>
         <div class="source-buttons">
@@ -80,7 +96,7 @@
         <div id="fileName"></div>
         <button id="stopBtn" style="display: none; background: #ff4081; margin: 5px auto;">STOP</button>
 
-        <hr style="margin: 15px 0; border: 0.5px solid #333;">
+        <hr>
 
         <div class="mode-toggle">
             <button id="modeBiquad" class="active">Biquad Filters</button>
@@ -112,17 +128,9 @@
             <label>Gain: <span id="gainVal">0</span> dB</label>
             <input type="range" id="gainSlider" min="-40" max="40" value="0" step="0.5">
         </div>
-
-        <div class="section-label">Frequency Response</div>
-        <canvas id="freqResponse" width="560" height="200"></canvas>
-
-        <div class="section-label">FFT Spectrum</div>
-        <canvas id="fftCanvas" width="560" height="130"></canvas>
         </div>
 
         <div id="spectralSection" class="mode-section">
-            <div class="section-label">Spectral Mask — 256 bins (click/drag to draw)</div>
-            <canvas id="spectralCanvas" width="560" height="220"></canvas>
             <div class="spectral-controls">
                 <button id="specAll">All Pass</button>
                 <button id="specNone">Mute All</button>
@@ -135,20 +143,34 @@
             </div>
             <div class="info-box">
                 Filtre FFT 512 points / 256 bins. <strong>Dessinez</strong> la courbe de réponse spectrale directement sur le canvas.
-                Clic gauche = dessiner. Les presets en-dessous permettent de démarrer avec une forme de base.
+                Clic gauche = dessiner. Les presets permettent de démarrer avec une forme de base.
             </div>
-
-            <div class="section-label">FFT Output</div>
-            <canvas id="fftCanvas2" width="560" height="130" style="background: #0a0a0a; border: 1px solid #333; display: block; margin: 10px auto; border-radius: 8px; max-width: 100%;"></canvas>
         </div>
 
         <div class="param-group">
             <label>Volume: <span id="volVal">50</span>%</label>
             <input type="range" id="volume" min="0" max="100" value="50">
         </div>
+        </div>
+        <div class="col">
+        <div id="biquadViz" class="mode-section visible">
+        <div class="section-label">Frequency Response</div>
+        <canvas id="freqResponse" width="560" height="200"></canvas>
+
+        <div class="section-label">FFT Spectrum</div>
+        <canvas id="fftCanvas" width="560" height="130"></canvas>
+        </div>
+
+        <div id="spectralViz" class="mode-section">
+            <div class="section-label">Spectral Mask — 256 bins (click/drag to draw)</div>
+            <canvas id="spectralCanvas" width="560" height="220"></canvas>
+
+            <div class="section-label">FFT Output</div>
+            <canvas id="fftCanvas2" width="560" height="130" style="background: #0a0a0a; border: 1px solid #333; display: block; margin: 10px auto; border-radius: 8px; max-width: 100%;"></canvas>
+        </div>
 
         <div class="dsp-academic">
-            <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg" aria-label="Filter explorer DSP graph">
+            <svg viewBox="0 20 760 180" xmlns="http://www.w3.org/2000/svg" aria-label="Filter explorer DSP graph">
                 <defs><marker id="arrFE" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#222"/></marker></defs>
                 <rect x="20" y="84" width="110" height="52" fill="none" stroke="#222" stroke-width="2"/>
                 <text x="75" y="114" text-anchor="middle" class="math">x[n]</text>
@@ -169,6 +191,9 @@
                 <line x1="482" y1="110" x2="518" y2="110" stroke="#222" stroke-width="2" marker-end="url(#arrFE)"/>
                 <line x1="580" y1="110" x2="620" y2="110" stroke="#222" stroke-width="2" marker-end="url(#arrFE)"/>
             </svg>
+        </div>
+
+        </div>
         </div>
     </div>
 
@@ -484,6 +509,8 @@ function switchMode(mode) {
     document.getElementById('modeSpectral').classList.toggle('active', mode === 'spectral');
     document.getElementById('biquadSection').classList.toggle('visible', mode === 'biquad');
     document.getElementById('spectralSection').classList.toggle('visible', mode === 'spectral');
+    document.getElementById('biquadViz').classList.toggle('visible', mode === 'biquad');
+    document.getElementById('spectralViz').classList.toggle('visible', mode === 'spectral');
 
     // Rewire audio if playing
     if (isPlaying) {

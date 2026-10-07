@@ -31,7 +31,7 @@
         nav a { background: #333; color: #aaa; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
         nav a:hover { background: #555; color: #fff; }
         nav a.active { background: #00e5ff; color: #121212; }
-        #tapBtn { font-size: 1.5rem; padding: 18px 40px; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto; user-select: none; -webkit-user-select: none; }
+        #tapBtn { font-size: 1.5rem; padding: 18px 40px; border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0; user-select: none; -webkit-user-select: none; }
         #tapBtn:active { background: #ff4081; transform: scale(0.93); }
         #waveCanvas { background: #0a0a0a; border: 1px solid #333; }
         #fftCanvas { background: #0a0a0a; border: 1px solid #333; }
@@ -43,6 +43,20 @@
         .dsp-academic svg marker path { fill: #59c7ff; stroke: none; }
         .dsp-academic svg text { fill: #a8e3ff; font-family: "Times New Roman", serif; font-size: 16px !important; }
         .dsp-academic svg text.math { font-style: italic; }
+        /* Mise en page compacte : deux colonnes sur écran large */
+        body { padding: 12px 10px; }
+        nav { margin-bottom: 10px; }
+        .synth-card { padding: 18px 24px; }
+        .synth-card > h1 { margin: 0 0 10px; font-size: 1.6rem; }
+        hr { border: 0.5px solid #333; margin: 12px 0; }
+        .section-label { margin: 10px 0 4px; }
+        .dsp-academic { margin-top: 10px; }
+        .layout { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 28px; align-items: start; }
+        .layout > .col > :first-child { margin-top: 0; }
+        @media (min-width: 980px) {
+            .synth-card { max-width: 1180px; width: calc(100% - 20px); }
+            .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+        }
     </style>
 </head>
 <body>
@@ -62,6 +76,8 @@
 
     <div class="synth-card">
         <h1>Filtre Résonant</h1>
+        <div class="layout">
+        <div class="col">
 
         <div class="info-box">
             Exciter un <strong>filtre résonant</strong> avec des impulsions permet d'entendre la fréquence de résonance du filtre « sonner ».
@@ -70,15 +86,12 @@
         </div>
 
         <div class="section-label">Excitation</div>
-        <div class="controls-row">
+        <div class="controls-row" style="align-items: center;">
             <button id="tapBtn">🫳</button>
-        </div>
-        <div style="font-size: 0.7rem; color: #666; margin: 4px 0;">Tap / Clic pour déclencher une impulsion</div>
-
-        <div class="controls-row" style="margin-top: 10px;">
             <button id="autoBtn">Auto: OFF</button>
             <button id="stopBtn" style="background: #ff4081; display: none;">STOP</button>
         </div>
+        <div style="font-size: 0.7rem; color: #666; margin: 4px 0;">Tap / Clic pour déclencher une impulsion</div>
 
         <div class="param-group">
             <label>Cadence auto: <span id="rateVal">4.0</span> Hz</label>
@@ -106,13 +119,13 @@
             <input type="range" id="volume" min="0" max="100" value="50">
         </div>
 
-        <hr>
-
+        </div>
+        <div class="col">
         <div class="section-label">Forme d'onde (réponse impulsionnelle)</div>
-        <canvas id="waveCanvas" width="560" height="140"></canvas>
+        <canvas id="waveCanvas" width="560" height="110"></canvas>
 
         <div class="section-label">Réponse en fréquence du filtre</div>
-        <canvas id="freqCanvas" width="560" height="160"></canvas>
+        <canvas id="freqCanvas" width="560" height="130"></canvas>
         <div style="margin: 5px 0;">
             <span class="stat">Freq: <strong><span id="statFreq">440</span> Hz</strong></span>
             <span class="stat">Q: <strong><span id="statQ">30</span></strong></span>
@@ -121,10 +134,10 @@
         </div>
 
         <div class="section-label">FFT Spectrum</div>
-        <canvas id="fftCanvas" width="560" height="130"></canvas>
+        <canvas id="fftCanvas" width="560" height="100"></canvas>
 
         <div class="dsp-academic">
-            <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg" aria-label="Resonant filter DSP graph">
+            <svg viewBox="0 70 760 80" xmlns="http://www.w3.org/2000/svg" aria-label="Resonant filter DSP graph">
                 <defs><marker id="arrRS" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#222"/></marker></defs>
                 <rect x="20" y="84" width="120" height="52" fill="none" stroke="#222" stroke-width="2"/>
                 <text x="80" y="114" text-anchor="middle" class="math">δ[n]</text>
@@ -139,6 +152,8 @@
                 <line x1="492" y1="110" x2="540" y2="110" stroke="#222" stroke-width="2" marker-end="url(#arrRS)"/>
                 <line x1="640" y1="110" x2="742" y2="110" stroke="#222" stroke-width="2" marker-end="url(#arrRS)"/>
             </svg>
+        </div>
+        </div>
         </div>
     </div>
 
